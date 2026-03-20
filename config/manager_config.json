@@ -1,0 +1,28 @@
+{
+  "app": {
+    "name": "韭研公社文章管理器",
+    "version": "1.0",
+    "language": "zh-CN"
+  },
+  "paths": {
+    "data_dir": "./data",
+    "log_dir": "./logs",
+    "export_dir": "./data/export"
+  },
+  "collection": {
+    "auto_collect": true,
+    "interval_minutes": 30,
+    "max_articles": 10,
+    "dedup_enabled": true
+  },
+  "storage": {
+    "format": "json",
+    "backup_enabled": true,
+    "backup_days": 7
+  },
+  "log": {
+    "level": "INFO",
+    "max_size_mb": 10,
+    "backup_count": 30
+  }
+}

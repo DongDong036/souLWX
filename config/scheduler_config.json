@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "schedule_type": "interval",
+  "interval_minutes": 30,
+  "fixed_times": [
+    "09:00",
+    "12:00",
+    "18:00",
+    "21:00"
+  ],
+  "start_date": "2026-03-20",
+  "end_date": null
+}
