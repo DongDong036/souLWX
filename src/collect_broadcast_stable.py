@@ -1,7 +1,7 @@
 """
-韭研公社广播消息采集工具 - 稳定版
+热点与趋势采集工具 - 稳定版
 每次采集后刷新页面，避免 DOM 上下文错误
-稳定采集最新 10 条广播消息
+稳定采集最新 10 条热点消息
 """
 
 from playwright.sync_api import sync_playwright
@@ -12,7 +12,7 @@ import os
 
 def main():
     print("=" * 60)
-    print("韭研公社广播消息采集工具 - 稳定版")
+    print("热点与趋势采集工具 - 稳定版")
     print("=" * 60)
     
     # 加载 cookies
@@ -104,36 +104,20 @@ def main():
                     if not article_url.startswith('http'):
                         article_url = 'https://www.jiuyangongshe.com' + article_url
                     
-                    # 提取作者
-                    author = '未知'
-                    try:
-                        # 尝试从文章元素中提取作者信息
-                        author_elem = article_elem.query_selector('.user-name, .author, .username, .user, .poster')
-                        if author_elem:
-                            author = author_elem.inner_text().strip()
-                        else:
-                            # 尝试从其他可能的位置提取作者
-                            author_elem = article_elem.query_selector('span:has-text("作者") + span')
-                            if author_elem:
-                                author = author_elem.inner_text().strip()
-                    except Exception as e:
-                        print(f"  [WARNING] 提取作者失败：{e}")
-                    
-                    # 提取时间（使用当前时间）
-                    pub_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    
-                    # 采集完整内容
+                    # 采集完整内容、作者和发布时间
                     print(f"  正在采集完整内容...")
                     result = collect_article_content(browser, cookies_data, article_url)
                     
                     # 处理函数返回值
-                    if isinstance(result, tuple) and len(result) == 2:
-                        content, stocks = result
+                    if isinstance(result, tuple) and len(result) == 4:
+                        content, stocks, author, pub_time = result
                     else:
-                        content, stocks = result, []
+                        content, stocks, author, pub_time = result, [], '未知', datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     
                     if content and len(content) > 100:
                         print(f"  [OK] 采集成功，{len(content)} 字符")
+                        print(f"  [OK] 作者：{author}")
+                        print(f"  [OK] 发布时间：{pub_time}")
                         if stocks:
                             print(f"  [OK] 提取到 {len(stocks)} 只股票")
                         
@@ -199,7 +183,7 @@ def extract_stocks(content):
     return unique_stocks
 
 def collect_article_content(browser, cookies_data, article_url):
-    """采集文章完整内容 - 每次创建新的页面上下文"""
+    """采集文章完整内容、作者和发布时间 - 每次创建新的页面上下文"""
     try:
         # 创建新的页面上下文（避免 DOM 上下文错误）
         context = browser.new_context(
@@ -213,25 +197,94 @@ def collect_article_content(browser, cookies_data, article_url):
         page.goto(article_url, wait_until='networkidle', timeout=30000)
         time.sleep(3)
         
+        # 提取作者信息
+        author = '未知'
+        try:
+            # 尝试多种选择器提取作者
+            author_selectors = [
+                '.username-box .fs16-bold',
+                '.username-box .name .fs16-bold',
+                '.detail-container .fs16-bold',
+                '[data-v-234fd4b4].fs16-bold',
+                '.user-info .name',
+                '.author-name',
+                '.username',
+                '.user-name'
+            ]
+            for selector in author_selectors:
+                try:
+                    author_elem = page.query_selector(selector)
+                    if author_elem:
+                        author_text = author_elem.inner_text().strip()
+                        if author_text and len(author_text) > 0 and len(author_text) < 50:
+                            author = author_text
+                            break
+                except:
+                    continue
+        except Exception as e:
+            print(f"    [WARNING] 提取作者失败：{e}")
+        
+        # 提取发布时间
+        pub_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        try:
+            # 尝试多种选择器提取时间
+            time_selectors = [
+                '.username-box .date',
+                '.detail-container .date',
+                '[data-v-234fd4b4].date',
+                '.username-box .fs14',
+                '.publish-time',
+                '.time',
+                '.post-time'
+            ]
+            for selector in time_selectors:
+                try:
+                    time_elem = page.query_selector(selector)
+                    if time_elem:
+                        time_text = time_elem.inner_text().strip()
+                        # 匹配时间格式：2026-03-21 09:36:17
+                        import re
+                        time_match = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', time_text)
+                        if time_match:
+                            pub_time = time_match.group(1)
+                            break
+                except:
+                    continue
+        except Exception as e:
+            print(f"    [WARNING] 提取时间失败：{e}")
+        
         # 尝试多种选择器提取内容
         content = ""
         html_content = ""
         
-        # 方法 1: 尝试常见的内容选择器
+        # 方法 1: 尝试常见的内容选择器（优先级最高）
         content_selectors = [
+            '.text-box.text-justify.fsDetail',
+            '.text-box',
+            '.fsDetail',
             '.pre',
             '.expound',
             '.article-content',
             '.article-detail',
+            'section .text-box',
+            'section',
             '[class*="article-content"]',
             '[class*="detail-content"]',
             'article',
             '.content',
-            '.trade-plan-section'
+            '.trade-plan-section',
+            '.detail-container section',
+            '.jc-parent section'
         ]
         
         for selector in content_selectors:
             try:
+                # 尝试等待元素出现
+                try:
+                    page.wait_for_selector(selector, timeout=5000)
+                except:
+                    pass
+                
                 content_elem = page.query_selector(selector)
                 if content_elem:
                     # 获取HTML内容（包含图片）
@@ -239,6 +292,7 @@ def collect_article_content(browser, cookies_data, article_url):
                     # 同时获取纯文本内容
                     content = content_elem.inner_text().strip()
                     if len(content) > 100:
+                        print(f"    [OK] 使用选择器 '{selector}' 获取内容成功")
                         break
             except:
                 continue
@@ -252,10 +306,14 @@ def collect_article_content(browser, cookies_data, article_url):
                     para_html = []
                     para_texts = []
                     for p in paragraphs:
-                        para_html.append(p.inner_html().strip())
-                        para_texts.append(p.inner_text().strip())
-                    html_content = '\n\n'.join(para_html)
-                    content = '\n\n'.join([t for t in para_texts if len(t) > 20])
+                        text = p.inner_text().strip()
+                        if len(text) > 10:  # 过滤太短的段落
+                            para_html.append(p.inner_html().strip())
+                            para_texts.append(text)
+                    if para_texts:
+                        html_content = '\n\n'.join(para_html)
+                        content = '\n\n'.join(para_texts)
+                        print(f"    [OK] 使用段落方法获取内容成功，共 {len(para_texts)} 个段落")
             except:
                 pass
         
@@ -268,9 +326,37 @@ def collect_article_content(browser, cookies_data, article_url):
                 main_lines = []
                 for line in lines:
                     line = line.strip()
-                    if len(line) > 30 and not any(x in line for x in ['登录', '注册', '首页', '导航', '分享', '点赞', '评论']):
+                    if len(line) > 30 and not any(x in line for x in ['登录', '注册', '首页', '导航', '分享', '点赞', '评论', '搜索', '通知', '私信']):
                         main_lines.append(line)
-                content = '\n'.join(main_lines[:50])
+                content = '\n'.join(main_lines[:100])  # 增加到100行
+                print(f"    [OK] 使用页面文本方法获取内容成功，共 {len(main_lines)} 行")
+            except:
+                pass
+        
+        # 方法 4: 尝试获取所有文本节点
+        if not content or len(content) < 100:
+            try:
+                # 使用JavaScript获取所有文本内容
+                all_text = page.evaluate('''() => {
+                    function getTextNodes(element) {
+                        let texts = [];
+                        for (let node of element.childNodes) {
+                            if (node.nodeType === Node.TEXT_NODE) {
+                                let text = node.textContent.trim();
+                                if (text.length > 20) {
+                                    texts.push(text);
+                                }
+                            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                                texts = texts.concat(getTextNodes(node));
+                            }
+                        }
+                        return texts;
+                    }
+                    return getTextNodes(document.body);
+                }''')
+                if all_text and len(all_text) > 0:
+                    content = '\n\n'.join(all_text)
+                    print(f"    [OK] 使用文本节点方法获取内容成功，共 {len(all_text)} 个文本块")
             except:
                 pass
         
@@ -284,11 +370,11 @@ def collect_article_content(browser, cookies_data, article_url):
         # 关闭页面
         context.close()
         
-        return content, stocks
+        return content, stocks, author, pub_time
         
     except Exception as e:
         print(f"    采集失败：{e}")
-        return ""
+        return "", [], '未知', datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 def save_results(messages):
     """保存采集结果（增量存储）"""
@@ -355,7 +441,7 @@ def save_results(messages):
     # Markdown 格式（推荐查看）
     md_path = 'data/database/broadcast_full.md'
     with open(md_path, 'w', encoding='utf-8') as f:
-        f.write("# 韭研公社广播消息采集\n\n")
+        f.write("# 热点与趋势采集\n\n")
         f.write(f"采集时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"共 {len(messages)} 条消息\n\n")
         f.write("=" * 80 + "\n\n")
@@ -386,7 +472,7 @@ def save_results(messages):
     # 摘要格式
     with open('broadcast_summary.txt', 'w', encoding='utf-8') as f:
         f.write("=" * 80 + "\n")
-        f.write("韭研公社广播消息摘要\n")
+        f.write("热点与趋势摘要\n")
         f.write("=" * 80 + "\n\n")
         f.write(f"采集时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"消息总数：{len(messages)}\n\n")

@@ -1,5 +1,5 @@
 """
-韭研公社文章管理器 - 桌面应用
+热点与趋势 - 桌面应用
 功能：批量采集、定时任务、搜索筛选、导出分享、数据统计
 """
 
@@ -7,6 +7,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, scrolledtext
 import json
 import os
+import subprocess
 from datetime import datetime, timedelta
 import threading
 import webbrowser
@@ -15,11 +16,12 @@ import schedule
 import time
 import win32gui
 import win32con
+from paddleocr import PaddleOCR
 
 class ArticleManagerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("韭研公社文章管理器")
+        self.root.title("热点与趋势")
         self.root.geometry("1200x800")
         
         # 数据文件
@@ -99,6 +101,11 @@ class ArticleManagerApp:
                              bg='#f44336', fg='white', **button_style, activebackground='#d32f2f')
         clear_btn.pack(side=tk.LEFT, padx=8)
         
+        # 配置管理按钮
+        config_btn = tk.Button(toolbar, text="⚙️ 配置管理", command=self.open_api_config, 
+                             bg='#9C27B0', fg='white', **button_style, activebackground='#7B1FA2')
+        config_btn.pack(side=tk.LEFT, padx=8)
+        
         # 搜索框
         search_frame = tk.Frame(toolbar, bg='#f8f9fa')
         search_frame.pack(side=tk.RIGHT, padx=10)
@@ -127,7 +134,7 @@ class ArticleManagerApp:
         type_combo.pack(side=tk.LEFT, padx=5)
         type_combo.bind('<<ComboboxSelected>>', self.filter_articles)
         
-        # 主内容区（左右分栏）
+        # 主内容区（左中右分栏）
         main_paned = tk.PanedWindow(self.root, orient=tk.HORIZONTAL, sashwidth=5, bg='#ffffff')
         main_paned.pack(fill=tk.BOTH, expand=True, padx=10, pady=8)
         
@@ -177,74 +184,73 @@ class ArticleManagerApp:
         self.article_tree.bind('<<TreeviewSelect>>', self.on_article_select)
         self.article_tree.bind('<Double-1>', self.open_article_url)
         
-        # 右侧：文章详情
-        right_frame = tk.Frame(main_paned, bg='#ffffff', bd=1, relief=tk.GROOVE)
-        main_paned.add(right_frame)
+        # 绑定右键菜单
+        self.article_tree.bind('<Button-3>', self.show_context_menu)
+        
+        # 创建右键菜单
+        self.context_menu = tk.Menu(self.root, tearoff=0)
+        self.context_menu.add_command(label="发送AI分析", command=self.send_to_ai_analysis)
+        
+        # 中间：文章内容
+        center_frame = tk.Frame(main_paned, bg='#ffffff', bd=1, relief=tk.GROOVE)
+        main_paned.add(center_frame, width=500)
         
         # 文章内容
-        content_frame = tk.Frame(right_frame, bg='#ffffff', bd=1, relief=tk.RAISED)
+        content_frame = tk.Frame(center_frame, bg='#ffffff', bd=1, relief=tk.RAISED)
         content_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
         
         self.content_text = scrolledtext.ScrolledText(content_frame, wrap=tk.WORD, font=('微软雅黑', 11), bg='#f9f9f9')
         self.content_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # 内容和股票池区域
-        content_stock_frame = tk.Frame(right_frame, bg='#ffffff')
-        content_stock_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
+        # 右侧：DeepSeek和股票池
+        right_frame = tk.Frame(main_paned, bg='#ffffff', bd=1, relief=tk.GROOVE)
+        main_paned.add(right_frame, width=400)
         
-        # 左侧：Edge浏览器
-        deepseek_frame = tk.Frame(content_stock_frame, bg='#ffffff', bd=1, relief=tk.RAISED)
-        deepseek_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+        # 上方：DeepSeek对话窗口（70%高度）
+        deepseek_frame = tk.Frame(right_frame, bg='#ffffff', bd=1, relief=tk.RAISED)
+        deepseek_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # 浏览器标题
         deepseek_title_frame = tk.Frame(deepseek_frame, bg='#e3f2fd')
         deepseek_title_frame.pack(fill=tk.X, pady=5)
-        tk.Label(deepseek_title_frame, text="🌐 Edge浏览器", font=('微软雅黑', 12, 'bold'), bg='#e3f2fd').pack(side=tk.LEFT, padx=10, pady=5)
+        tk.Label(deepseek_title_frame, text="🤖 DeepSeek对话", font=('微软雅黑', 12, 'bold'), bg='#e3f2fd').pack(side=tk.LEFT, padx=10, pady=5)
         
-        # 打开DeepSeek按钮
-        open_deepseek_btn = tk.Button(deepseek_title_frame, text="🌐 打开DeepSeek", command=self.open_deepseek_main, 
-                                    bg='#9C27B0', fg='white', font=('微软雅黑', 9), padx=5, pady=3)
-        open_deepseek_btn.pack(side=tk.RIGHT, padx=10)
+
         
-        # 嵌入谷歌浏览器
+        # 嵌入DeepSeek对话窗口
         browser_frame = tk.Frame(deepseek_frame, bg='#ffffff')
         browser_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # 保存浏览器框架的引用
         self.browser_frame = browser_frame
         
-        # 嵌入谷歌浏览器
-        self.embed_chrome_browser()
+        # 嵌入DeepSeek对话窗口
+        self.embed_deepseek_browser()
         
-        # 绑定窗口大小变化事件
-        self.root.bind('<Configure>', self.on_window_resize)
-        
-        # 右侧：股票池
-        stock_frame = tk.Frame(content_stock_frame, bg='#ffffff', bd=1, relief=tk.RAISED, width=300)
-        stock_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=5)
+        # 下方：股票池（30%高度）
+        stock_frame = tk.Frame(right_frame, bg='#ffffff', bd=1, relief=tk.RAISED)
+        stock_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, padx=5, pady=5)
         
         # 股票池标题
         stock_title_frame = tk.Frame(stock_frame, bg='#e3f2fd')
         stock_title_frame.pack(fill=tk.X, pady=5)
-        tk.Label(stock_title_frame, text="� 股票池", font=('微软雅黑', 12, 'bold'), bg='#e3f2fd').pack(side=tk.LEFT, padx=10, pady=5)
+        tk.Label(stock_title_frame, text="📈 股票池", font=('微软雅黑', 12, 'bold'), bg='#e3f2fd').pack(side=tk.LEFT, padx=10, pady=5)
         
         # 股票池内容
         stock_list_frame = tk.Frame(stock_frame, bg='#ffffff')
         stock_list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
-        # 创建股票池Treeview
-        stock_columns = ('序号', '股票名称', '股票代码')
-        self.stock_tree = ttk.Treeview(stock_list_frame, columns=stock_columns, show='headings', height=15)
+        # 创建股票池Treeview（每行显示3组股票）
+        stock_columns = ('股票名称1', '股票代码1', '股票名称2', '股票代码2', '股票名称3', '股票代码3')
+        self.stock_tree = ttk.Treeview(stock_list_frame, columns=stock_columns, show='headings', height=3)
         
         # 配置列
         for col in stock_columns:
             self.stock_tree.heading(col, text=col, anchor=tk.CENTER)
-            if col == '序号':
-                self.stock_tree.column(col, width=50, anchor=tk.CENTER)
-            elif col == '股票名称':
-                self.stock_tree.column(col, width=100, anchor=tk.W)
+            if '股票名称' in col:
+                self.stock_tree.column(col, width=80, anchor=tk.W)
             else:
-                self.stock_tree.column(col, width=100, anchor=tk.CENTER)
+                self.stock_tree.column(col, width=60, anchor=tk.CENTER)
         
         # 配置样式
         style = ttk.Style()
@@ -273,15 +279,23 @@ class ArticleManagerApp:
                                  bg='#4CAF50', fg='white', font=('微软雅黑', 9), padx=5, pady=3)
         add_manual_btn.pack(side=tk.LEFT, padx=5)
         
+        # OCR识别按钮
+        ocr_btn = tk.Button(stock_btn_frame, text="📷 OCR识别", command=self.ocr_recognition, 
+                           bg='#FF9800', fg='white', font=('微软雅黑', 9), padx=5, pady=3)
+        ocr_btn.pack(side=tk.LEFT, padx=5)
+        
         # DeepSeek分析按钮
         deepseek_btn = tk.Button(stock_btn_frame, text="🤖 DeepSeek分析", command=self.open_deepseek_analysis, 
                                 bg='#9C27B0', fg='white', font=('微软雅黑', 9), padx=5, pady=3)
         deepseek_btn.pack(side=tk.LEFT, padx=5)
         
         # 清空股票按钮
-        clear_stock_btn = tk.Button(stock_btn_frame, text="�️ 清空", command=self.clear_stocks, 
+        clear_stock_btn = tk.Button(stock_btn_frame, text="🗑️ 清空", command=self.clear_stocks, 
                                   bg='#f44336', fg='white', font=('微软雅黑', 9), padx=5, pady=3)
         clear_stock_btn.pack(side=tk.RIGHT, padx=5)
+        
+        # 绑定窗口大小变化事件
+        self.root.bind('<Configure>', self.on_window_resize)
         
         # 底部状态栏
         self.status_var = tk.StringVar(value="就绪")
@@ -341,13 +355,12 @@ class ArticleManagerApp:
         for item in self.article_tree.get_children():
             self.article_tree.delete(item)
         
-        # 标准化股票代码
+        # 标准化股票代码（返回纯数字代码）
         def standardize_stock_code(code):
-            if len(code) == 6:
-                if code.startswith('6'):
-                    return f'SH{code}'
-                else:
-                    return f'SZ{code}'
+            # 移除可能的前缀
+            code = code.upper().replace('SH', '').replace('SZ', '')
+            if len(code) == 6 and code.isdigit():
+                return code
             return code
         
         # 筛选
@@ -441,7 +454,7 @@ class ArticleManagerApp:
             self.update_stock_list(article)
             
             # 绑定右键菜单
-            self.content_text.bind('<Button-3>', lambda e: self.show_context_menu(e, article))
+            self.content_text.bind('<Button-3>', lambda e: self.show_content_context_menu(e, article))
     
     def collect_articles(self):
         """采集文章"""
@@ -467,7 +480,6 @@ class ArticleManagerApp:
                 self.load_article_list()
                 self.update_stats()
                 
-                self.root.after(0, lambda: messagebox.showinfo("采集完成", "成功采集最新文章！"))
                 self.root.after(0, lambda: self.status_var.set("采集完成"))
             except Exception as e:
                 self.root.after(0, lambda: messagebox.showerror("采集失败", str(e)))
@@ -576,6 +588,72 @@ class ArticleManagerApp:
                 messagebox.showwarning("提示", "该文章没有 URL 链接")
         else:
             messagebox.showwarning("提示", "无法获取文章信息")
+    
+    def show_context_menu(self, event):
+        """显示右键菜单"""
+        item = self.article_tree.identify_row(event.y)
+        if item:
+            self.article_tree.selection_set(item)
+            self.context_menu.post(event.x_root, event.y_root)
+    
+    def send_to_ai_analysis(self):
+        """发送AI分析"""
+        # 获取选中的文章
+        selection = self.article_tree.selection()
+        if not selection:
+            return
+        
+        # 获取文章URL
+        index = self.article_tree.index(selection[0])
+        if index < len(self.articles):
+            article = self.articles[index]
+            article_url = article.get('url', '')
+            
+            if article_url:
+                # 构建DeepSeek分析请求
+                prompt = f"请分析此链接内容：{article_url}"
+                
+                # 尝试使用已打开的DeepSeek窗口
+                if hasattr(self, 'deepseek_hwnd') and self.deepseek_hwnd:
+                    try:
+                        import pyperclip
+                        import win32api
+                        import win32con
+                        import win32gui
+                        
+                        # 将提示词复制到剪贴板
+                        pyperclip.copy(prompt)
+                        
+                        # 激活DeepSeek窗口
+                        win32gui.SetForegroundWindow(self.deepseek_hwnd)
+                        time.sleep(0.5)
+                        
+                        # 模拟Ctrl+V粘贴
+                        win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)
+                        win32api.keybd_event(ord('V'), 0, 0, 0)
+                        win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, 0)
+                        win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
+                        time.sleep(0.3)
+                        
+                        # 模拟Enter发送
+                        win32api.keybd_event(win32con.VK_RETURN, 0, 0, 0)
+                        win32api.keybd_event(win32con.VK_RETURN, 0, win32con.KEYEVENTF_KEYUP, 0)
+                    except Exception as e:
+                        import urllib.parse
+                        encoded_prompt = urllib.parse.quote(prompt)
+                        deepseek_url = f"https://chat.deepseek.com/?q={encoded_prompt}"
+                        import webbrowser
+                        webbrowser.open(deepseek_url)
+                        messagebox.showinfo("AI分析", f"已打开DeepSeek网页并填充分析请求")
+                else:
+                    import urllib.parse
+                    encoded_prompt = urllib.parse.quote(prompt)
+                    deepseek_url = f"https://chat.deepseek.com/?q={encoded_prompt}"
+                    import webbrowser
+                    webbrowser.open(deepseek_url)
+                    messagebox.showinfo("AI分析", "已打开DeepSeek网页并填充分析请求")
+            else:
+                messagebox.showinfo("提示", "该文章没有URL")
     
     def clear_articles(self):
         """清空文章"""
@@ -777,20 +855,43 @@ class ArticleManagerApp:
         text.config(state=tk.DISABLED)
     
     def update_stock_list(self, article):
-        """更新股票池列表"""
+        """更新股票池列表（每行显示3组股票）"""
         # 清空列表
         for item in self.stock_tree.get_children():
             self.stock_tree.delete(item)
         
-        # 添加股票
+        # 添加股票（每3个一组）
         stocks = article.get('stocks', [])
-        for i, stock in enumerate(stocks, 1):
-            if isinstance(stock, dict) and 'name' in stock and 'code' in stock:
-                # 显示股票名称和代码
-                self.stock_tree.insert('', tk.END, values=(i, stock['name'], stock['code']))
-            else:
-                # 兼容旧格式
-                self.stock_tree.insert('', tk.END, values=(i, "未知", stock))
+        
+        # 将股票分组，每组3个
+        stock_groups = []
+        current_group = []
+        
+        for stock in stocks:
+            current_group.append(stock)
+            if len(current_group) == 3:
+                stock_groups.append(current_group)
+                current_group = []
+        
+        # 处理剩余的股票
+        if current_group:
+            # 不足3个的组，用空值填充
+            while len(current_group) < 3:
+                current_group.append({'name': '', 'code': ''})
+            stock_groups.append(current_group)
+        
+        # 插入分组后的股票
+        for group in stock_groups:
+            # 准备一行的数据
+            row_data = []
+            
+            for stock in group:
+                if isinstance(stock, dict) and 'name' in stock and 'code' in stock:
+                    row_data.extend([stock['name'], stock['code']])
+                else:
+                    row_data.extend(["未知", stock if stock else ""])
+            
+            self.stock_tree.insert('', tk.END, values=tuple(row_data))
     
     def analyze_stocks(self):
         """分析文章内容并提取股票"""
@@ -805,87 +906,13 @@ class ArticleManagerApp:
             article = self.articles[index]
             content = article.get('content', '')
             
-            # 提取股票
-            import re
+            # 使用股票识别器
+            from stock_recognizer import StockRecognizer
+            recognizer = StockRecognizer()
             
-            # 股票代码模式
-            stock_code_pattern = r'(?:SZ|SH)?\d{6}'
-            stock_codes = re.findall(stock_code_pattern, content)
-            
-            # 股票名称和代码映射
-            stock_mapping = {
-                # 算力相关
-                '奥瑞德': '600666',
-                '昆仑万维': '300418',
-                '泰豪科技': '600590',
-                '东方国信': '300166',
-                '利通电子': '603629',
-                '中国能建': '601868',
-                '宁波建工': '601789',
-                '豫能控股': '001896',
-                '中电鑫龙': '002298',
-                
-                # 科技相关
-                '沪电股份': '002463',
-                '金安国纪': '002636',
-                '佰维存储': '688525',
-                '德明利': '001309',
-                '凯德石英': '688553',
-                '思源电气': '002028',
-                '中新集团': '601512',
-                '大连电瓷': '002606',
-                
-                # 能源相关
-                '金开新能': '600821',
-                '首航新能': '300665',
-                '铁龙物流': '600125',
-                '协鑫能科': '002015',
-                '华电能源': '600726',
-                '粤电力A': '000539'
-            }
-            
-            # 创建反向映射（股票代码到名称）
-            code_to_name_mapping = {v: k for k, v in stock_mapping.items()}
-            
-            # 标准化股票代码并添加名称
-            stock_list = []
-            code_set = set()
-            
-            # 处理提取的股票代码
-            for code in stock_codes:
-                code = code.upper()
-                if len(code) == 6:
-                    if code.startswith('6'):
-                        standard_code = f'SH{code}'
-                    else:
-                        standard_code = f'SZ{code}'
-                else:
-                    standard_code = code
-                
-                if standard_code not in code_set:
-                    code_set.add(standard_code)
-                    # 查找股票名称
-                    stock_name = "未知"
-                    
-                    # 尝试从反向映射中查找
-                    code_num = standard_code[-6:]  # 获取后6位数字
-                    if code_num in code_to_name_mapping:
-                        stock_name = code_to_name_mapping[code_num]
-                    
-                    stock_list.append({'name': stock_name, 'code': standard_code})
-            
-            # 处理文章中提到的股票名称
-            for stock_name, stock_code in stock_mapping.items():
-                if stock_name in content:
-                    # 标准化股票代码
-                    if stock_code.startswith('6'):
-                        standard_code = f'SH{stock_code}'
-                    else:
-                        standard_code = f'SZ{stock_code}'
-                    
-                    if standard_code not in code_set:
-                        code_set.add(standard_code)
-                        stock_list.append({'name': stock_name, 'code': standard_code})
+            # 识别股票
+            stock_list = recognizer.recognize_stocks(content)
+            code_set = set(stock['code'] for stock in stock_list)
             
             # 获取现有股票池
             existing_stocks = article.get('stocks', [])
@@ -931,9 +958,11 @@ class ArticleManagerApp:
             # 更新文章信息
             stock_text = ', '.join([f"{s['name']}({s['code']})" for s in updated_stocks]) if updated_stocks else '无'
             meta_text = f"作者：{article.get('author', '')}  |  发布：{article.get('publish_time', '')}  |  股票：{stock_text}  |  字数：{len(article.get('content', ''))}"
-            self.info_meta.config(text=meta_text)
+            # 重新加载文章内容以更新显示
+            self.on_article_select(None)
             
-            messagebox.showinfo("分析完成", f"成功更新股票池，现有 {len(updated_stocks)} 只股票")
+            # 更新状态栏
+            self.status_var.set(f"股票分析完成，现有 {len(updated_stocks)} 只股票")
     
     def clear_stocks(self):
         """清空股票池"""
@@ -958,12 +987,14 @@ class ArticleManagerApp:
             
             # 更新文章信息
             meta_text = f"作者：{article.get('author', '')}  |  发布：{article.get('publish_time', '')}  |  股票：无  |  字数：{len(article.get('content', ''))}"
-            self.info_meta.config(text=meta_text)
+            # 重新加载文章内容以更新显示
+            self.on_article_select(None)
             
-            messagebox.showinfo("清空完成", "股票池已清空")
+            # 更新状态栏
+            self.status_var.set("股票池已清空")
     
-    def show_context_menu(self, event, article):
-        """显示右键菜单"""
+    def show_content_context_menu(self, event, article):
+        """显示内容右键菜单"""
         # 创建右键菜单
         context_menu = tk.Menu(self.root, tearoff=0)
         
@@ -1029,7 +1060,8 @@ class ArticleManagerApp:
         # 更新文章信息
         stock_text = ', '.join(existing_stocks) if existing_stocks else '无'
         meta_text = f"作者：{article.get('author', '')}  |  发布：{article.get('publish_time', '')}  |  股票：{stock_text}  |  字数：{len(article.get('content', ''))}"
-        self.info_meta.config(text=meta_text)
+        # 重新加载文章内容以更新显示
+        self.on_article_select(None)
         
         messagebox.showinfo("添加成功", f"成功添加 {len(unique_stocks)} 只股票")
     
@@ -1064,11 +1096,8 @@ class ArticleManagerApp:
                 messagebox.showinfo("输入错误", "请输入有效的6位股票代码")
                 return
             
-            # 标准化股票代码
-            if stock_code.startswith('6'):
-                standard_code = f'SH{stock_code}'
-            else:
-                standard_code = f'SZ{stock_code}'
+            # 标准化股票代码（使用纯数字）
+            standard_code = stock_code
             
             # 获取现有股票
             existing_stocks = article.get('stocks', [])
@@ -1099,7 +1128,8 @@ class ArticleManagerApp:
                 # 更新文章信息
                 stock_text = ', '.join([f"{s['name']}({s['code']})" if isinstance(s, dict) else s for s in existing_stocks]) if existing_stocks else '无'
                 meta_text = f"作者：{article.get('author', '')}  |  发布：{article.get('publish_time', '')}  |  股票：{stock_text}  |  字数：{len(article.get('content', ''))}"
-                self.info_meta.config(text=meta_text)
+                # 重新加载文章内容以更新显示
+                self.on_article_select(None)
                 
                 messagebox.showinfo("添加成功", f"成功添加股票：{stock_name} ({standard_code})")
             else:
@@ -1152,8 +1182,8 @@ class ArticleManagerApp:
         
         return dehydrated_content
     
-    def embed_chrome_browser(self):
-        """嵌入Edge浏览器"""
+    def embed_deepseek_browser(self):
+        """嵌入DeepSeek对话窗口"""
         try:
             # 启动Edge浏览器
             edge_path = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
@@ -1164,23 +1194,23 @@ class ArticleManagerApp:
                     messagebox.showinfo("提示", "未找到Edge浏览器，请确保已安装Edge浏览器")
                     return
             
-            # 启动浏览器并打开DeepSeek
+            # 启动浏览器并打开DeepSeek对话
             subprocess.Popen([edge_path, "--app=https://chat.deepseek.com"])
             
             # 等待浏览器启动
             time.sleep(3)
             
-            # 查找Edge浏览器窗口
-            def find_edge_window(hwnd, ctx):
+            # 查找DeepSeek浏览器窗口
+            def find_deepseek_window(hwnd, ctx):
                 title = win32gui.GetWindowText(hwnd)
                 if "DeepSeek" in title and win32gui.IsWindowVisible(hwnd):
                     ctx.append(hwnd)
             
-            edge_windows = []
-            win32gui.EnumWindows(find_edge_window, edge_windows)
+            deepseek_windows = []
+            win32gui.EnumWindows(find_deepseek_window, deepseek_windows)
             
-            if edge_windows:
-                self.chrome_hwnd = edge_windows[0]
+            if deepseek_windows:
+                self.deepseek_hwnd = deepseek_windows[0]
                 
                 # 获取浏览器框架的位置和大小
                 browser_x = self.browser_frame.winfo_x()
@@ -1197,30 +1227,37 @@ class ArticleManagerApp:
                 absolute_y = root_y + browser_y + 100  # 100是标题栏和工具栏的估计值
                 
                 # 设置浏览器窗口为子窗口
-                win32gui.SetParent(self.chrome_hwnd, self.browser_frame.winfo_id())
+                win32gui.SetParent(self.deepseek_hwnd, self.browser_frame.winfo_id())
                 
                 # 调整浏览器窗口大小和位置
-                win32gui.MoveWindow(self.chrome_hwnd, 0, 0, browser_width, browser_height, True)
+                win32gui.MoveWindow(self.deepseek_hwnd, 0, 0, browser_width, browser_height, True)
                 
                 # 显示浏览器窗口
-                win32gui.ShowWindow(self.chrome_hwnd, win32con.SW_SHOW)
+                win32gui.ShowWindow(self.deepseek_hwnd, win32con.SW_SHOW)
             else:
-                messagebox.showinfo("提示", "未找到Edge浏览器窗口")
+                messagebox.showinfo("提示", "未找到DeepSeek浏览器窗口")
         except Exception as e:
-            messagebox.showinfo("错误", f"嵌入浏览器失败：{str(e)}")
+            messagebox.showinfo("错误", f"嵌入DeepSeek窗口失败：{str(e)}")
     
     def on_window_resize(self, event):
-        """窗口大小变化时调整浏览器窗口大小"""
-        if hasattr(self, 'chrome_hwnd') and self.chrome_hwnd:
+        """窗口大小变化时调整DeepSeek窗口大小"""
+        if hasattr(self, 'deepseek_hwnd') and self.deepseek_hwnd:
             try:
                 # 获取浏览器框架的大小
                 browser_width = self.browser_frame.winfo_width()
                 browser_height = self.browser_frame.winfo_height()
                 
                 # 调整浏览器窗口大小
-                win32gui.MoveWindow(self.chrome_hwnd, 0, 0, browser_width, browser_height, True)
+                win32gui.MoveWindow(self.deepseek_hwnd, 0, 0, browser_width, browser_height, True)
             except Exception:
                 pass
+    
+    def open_api_config(self):
+        """打开完整的配置管理界面"""
+        from config_gui import ConfigGUI
+        config_gui = ConfigGUI(self.root)
+        config_gui.open_config_window()
+        
     
     def open_deepseek_main(self):
         """打开DeepSeek主界面"""
@@ -1234,7 +1271,7 @@ class ArticleManagerApp:
         messagebox.showinfo("DeepSeek", "已打开DeepSeek主界面")
     
     def open_deepseek_analysis(self):
-        """打开DeepSeek网页并自动填充分析请求"""
+        """使用已打开的DeepSeek对话窗口进行分析"""
         # 获取当前选中的文章
         selection = self.article_tree.selection()
         if not selection:
@@ -1251,18 +1288,146 @@ class ArticleManagerApp:
                 return
             
             # 构建DeepSeek分析请求
-            import urllib.parse
             prompt = f"帮我分析总结\"{article_url}\"的内容，并提取相关的股票信息"
-            encoded_prompt = urllib.parse.quote(prompt)
             
-            # DeepSeek网页URL
-            deepseek_url = f"https://chat.deepseek.com/?prompt={encoded_prompt}"
-            
-            # 打开浏览器
-            import webbrowser
-            webbrowser.open(deepseek_url)
-            
-            messagebox.showinfo("DeepSeek分析", f"已打开DeepSeek网页并填充分析请求")
+            # 尝试使用已打开的DeepSeek窗口
+            if hasattr(self, 'deepseek_hwnd') and self.deepseek_hwnd:
+                try:
+                    import pyperclip
+                    import win32api
+                    import win32con
+                    import win32gui
+                    
+                    # 将提示词复制到剪贴板
+                    pyperclip.copy(prompt)
+                    
+                    # 激活DeepSeek窗口
+                    win32gui.SetForegroundWindow(self.deepseek_hwnd)
+                    time.sleep(0.5)
+                    
+                    # 模拟Ctrl+V粘贴
+                    win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)
+                    win32api.keybd_event(ord('V'), 0, 0, 0)
+                    win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, 0)
+                    win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
+                    time.sleep(0.3)
+                    
+                    # 模拟Enter发送
+                    win32api.keybd_event(win32con.VK_RETURN, 0, 0, 0)
+                    win32api.keybd_event(win32con.VK_RETURN, 0, win32con.KEYEVENTF_KEYUP, 0)
+                except Exception as e:
+                    import urllib.parse
+                    encoded_prompt = urllib.parse.quote(prompt)
+                    deepseek_url = f"https://chat.deepseek.com/?q={encoded_prompt}"
+                    import webbrowser
+                    webbrowser.open(deepseek_url)
+                    messagebox.showinfo("DeepSeek分析", f"已打开DeepSeek网页并填充分析请求")
+            else:
+                import urllib.parse
+                encoded_prompt = urllib.parse.quote(prompt)
+                deepseek_url = f"https://chat.deepseek.com/?q={encoded_prompt}"
+                import webbrowser
+                webbrowser.open(deepseek_url)
+                messagebox.showinfo("DeepSeek分析", "已打开DeepSeek网页并填充分析请求")
+    
+    def ocr_recognition(self):
+        """OCR识别图片中的股票信息"""
+        # 打开文件选择对话框
+        filetypes = [
+            ('图片文件', '*.jpg *.jpeg *.png *.bmp'),
+            ('所有文件', '*.*')
+        ]
+        
+        filename = filedialog.askopenfilename(
+            title='选择图片文件',
+            filetypes=filetypes
+        )
+        
+        if not filename:
+            return
+        
+        # 显示加载提示
+        self.status_var.set("正在进行OCR识别...")
+        self.root.update()
+        
+        # 在新线程中执行OCR识别
+        def ocr_thread():
+            try:
+                # 初始化PaddleOCR
+                ocr = PaddleOCR(use_angle_cls=True, lang='ch')
+                
+                # 执行OCR识别
+                result = ocr.ocr(filename, cls=True)
+                
+                # 提取识别结果
+                ocr_text = ''
+                for line in result:
+                    for word in line:
+                        ocr_text += word[1][0] + ' '
+                
+                # 提取股票代码和名称
+                import re
+                stock_code_pattern = r'(?:SZ|SH)?\d{6}'
+                stock_codes = re.findall(stock_code_pattern, ocr_text)
+                
+                # 使用股票识别器
+                from stock_recognizer import StockRecognizer
+                recognizer = StockRecognizer()
+                
+                # 识别股票
+                standardized_stocks = recognizer.recognize_stocks(ocr_text)
+                
+                # 获取当前选中的文章
+                selection = self.article_tree.selection()
+                if selection:
+                    index = self.article_tree.index(selection[0])
+                    if index < len(self.articles):
+                        article = self.articles[index]
+                        existing_stocks = article.get('stocks', [])
+                        
+                        # 添加新识别的股票
+                        added_count = 0
+                        for stock in standardized_stocks:
+                            exists = False
+                            for existing_stock in existing_stocks:
+                                if isinstance(existing_stock, dict) and existing_stock.get('code') == stock['code']:
+                                    exists = True
+                                    break
+                                elif existing_stock == stock['code']:
+                                    exists = True
+                                    break
+                            
+                            if not exists:
+                                existing_stocks.append(stock)
+                                added_count += 1
+                        
+                        if added_count > 0:
+                            # 更新文章的股票池
+                            article['stocks'] = existing_stocks
+                            
+                            # 保存文章数据
+                            self.save_articles()
+                            
+                            # 更新显示
+                            self.root.after(0, lambda: self.update_stock_list(article))
+                            
+                            # 显示识别结果
+                            result_text = f"OCR识别完成！\n\n识别文本：{ocr_text[:200]}...\n\n提取股票：{len(standardized_stocks)} 只\n添加到股票池：{added_count} 只"
+                            self.root.after(0, lambda: messagebox.showinfo("OCR识别结果", result_text))
+                        else:
+                            self.root.after(0, lambda: messagebox.showinfo("OCR识别结果", f"OCR识别完成！\n\n识别文本：{ocr_text[:200]}...\n\n提取股票：{len(standardized_stocks)} 只\n所有股票已在股票池中"))
+                    else:
+                        self.root.after(0, lambda: messagebox.showinfo("OCR识别结果", f"OCR识别完成！\n\n识别文本：{ocr_text[:200]}...\n\n提取股票：{len(standardized_stocks)} 只\n\n{standardized_stocks}"))
+                else:
+                    self.root.after(0, lambda: messagebox.showinfo("OCR识别结果", f"OCR识别完成！\n\n识别文本：{ocr_text[:200]}...\n\n提取股票：{len(standardized_stocks)} 只\n\n{standardized_stocks}"))
+                
+                self.root.after(0, lambda: self.status_var.set("OCR识别完成"))
+            except Exception as e:
+                self.root.after(0, lambda: messagebox.showerror("OCR识别失败", f"识别过程中出现错误：{str(e)}"))
+                self.root.after(0, lambda: self.status_var.set("OCR识别失败"))
+        
+        thread = threading.Thread(target=ocr_thread, daemon=True)
+        thread.start()
     
     def verify_and_add_stock(self, article):
         """验证并添加股票名称"""
@@ -1278,50 +1443,22 @@ class ArticleManagerApp:
         import json
         
         try:
-            # 常见股票代码映射（手动维护一些常见股票）
-            stock_mapping = {
-                # 算力相关
-                '奥瑞德': '600666',
-                '昆仑万维': '300418',
-                '泰豪科技': '600590',
-                '东方国信': '300166',
-                '利通电子': '603629',
-                '中国能建': '601868',
-                '宁波建工': '601789',
-                '豫能控股': '001896',
-                '中电鑫龙': '002298',
-                
-                # 科技相关
-                '沪电股份': '002463',
-                '金安国纪': '002636',
-                '佰维存储': '688525',
-                '德明利': '001309',
-                '凯德石英': '688553',
-                '思源电气': '002028',
-                '中新集团': '601512',
-                '大连电瓷': '002606',
-                
-                # 能源相关
-                '金开新能': '600821',
-                '首航新能': '300665',
-                '铁龙物流': '600125',
-                '协鑫能科': '002015',
-                '华电能源': '600726',
-                '粤电力A': '000539'
-            }
+            # 使用股票识别器
+            from stock_recognizer import StockRecognizer
+            recognizer = StockRecognizer()
             
             # 清理选中的文本
             clean_text = selected_text.strip()
             
-            # 首先检查是否在映射表中
-            if clean_text in stock_mapping:
-                stock_code = stock_mapping[clean_text]
-                # 标准化股票代码
-                if stock_code.startswith('6'):
-                    standard_code = f'SH{stock_code}'
-                else:
-                    standard_code = f'SZ{stock_code}'
-                stock_name = clean_text
+            # 获取股票建议
+            suggestions = recognizer.get_suggestions(clean_text)
+            
+            if suggestions:
+                # 使用第一个建议
+                stock_info = suggestions[0]
+                stock_name = stock_info['name']
+                stock_code = stock_info['code']
+                standard_code = stock_code
                 found = True
             else:
                 # 尝试不同的股票代码格式
@@ -1355,11 +1492,8 @@ class ArticleManagerApp:
                             stock_name = stock_info[1]
                             stock_code = stock_info[2]
                             
-                            # 标准化股票代码
-                            if stock_code.startswith('6'):
-                                standard_code = f'SH{stock_code}'
-                            else:
-                                standard_code = f'SZ{stock_code}'
+                            # 标准化股票代码（使用纯数字）
+                            standard_code = stock_code
                             
                             found = True
                             break
@@ -1376,11 +1510,8 @@ class ArticleManagerApp:
                     # 验证股票代码格式
                     import re
                     if re.match(r'^\d{6}$', stock_code):
-                        # 标准化股票代码
-                        if stock_code.startswith('6'):
-                            standard_code = f'SH{stock_code}'
-                        else:
-                            standard_code = f'SZ{stock_code}'
+                        # 标准化股票代码（使用纯数字）
+                        standard_code = stock_code
                         stock_name = clean_text
                         found = True
                     else:
@@ -1418,7 +1549,8 @@ class ArticleManagerApp:
                 # 更新文章信息
                 stock_text = ', '.join([f"{s['name']}({s['code']})" if isinstance(s, dict) else s for s in existing_stocks]) if existing_stocks else '无'
                 meta_text = f"作者：{article.get('author', '')}  |  发布：{article.get('publish_time', '')}  |  股票：{stock_text}  |  字数：{len(article.get('content', ''))}"
-                self.info_meta.config(text=meta_text)
+                # 重新加载文章内容以更新显示
+                self.on_article_select(None)
                 
                 messagebox.showinfo("验证成功", f"成功验证并添加股票：{stock_name} ({standard_code})")
             else:
@@ -1429,7 +1561,7 @@ class ArticleManagerApp:
     def show_about(self):
         """显示关于"""
         messagebox.showinfo("关于", 
-                           "韭研公社文章管理器 v1.0\n\n"
+                           "热点与趋势 v1.0\n\n"
                            "功能：批量采集、定时任务、搜索筛选、导出分享、数据统计\n\n"
                            "开发时间：2026-03-19")
     
