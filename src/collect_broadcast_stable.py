@@ -19,17 +19,55 @@ def main():
     cookies_path = 'data/cookies/cookies.json'
     if not os.path.exists(cookies_path):
         print("[ERROR] 未找到 cookies 文件")
-        return
+        print("请先运行 python src/login_save_cookies.py 完成登录")
+        return []
     
-    with open(cookies_path, 'r', encoding='utf-8') as f:
-        cookies_data = json.load(f)
-    
-    print(f"[OK] Cookies 加载成功（保存时间：{cookies_data.get('timestamp', '未知')}）")
+    cookies_data = None
+    try:
+        with open(cookies_path, 'r', encoding='utf-8') as f:
+            cookies_data = json.load(f)
+        
+        if not cookies_data or not cookies_data.get('cookies'):
+            print("[ERROR] cookies 文件格式不正确")
+            print("请重新运行 python src/login_save_cookies.py 完成登录")
+            return []
+        
+        print(f"[OK] Cookies 加载成功（保存时间：{cookies_data.get('timestamp', '未知')}）")
+        print()
+        
+        # 检查 cookies 是否过期（简单判断：超过7天认为过期）
+        try:
+            import datetime
+            timestamp = cookies_data.get('timestamp')
+            if timestamp:
+                cookie_time = datetime.datetime.fromisoformat(timestamp)
+                current_time = datetime.datetime.now()
+                days_diff = (current_time - cookie_time).days
+                if days_diff > 7:
+                    print("[WARNING] cookies 可能已过期")
+                    print("建议重新运行 python src/login_save_cookies.py 更新登录状态")
+        except:
+            pass
+    except Exception as e:
+        print(f"[ERROR] 读取 cookies 文件失败: {e}")
+        print("请重新运行 python src/login_save_cookies.py 完成登录")
+        return []
     
     broadcast_messages = []
     
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        # 尝试使用 Edge 浏览器
+        edge_path = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+        if not os.path.exists(edge_path):
+            edge_path = r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+            if not os.path.exists(edge_path):
+                print("❌ 未找到 Edge 浏览器，请确保已安装 Edge 浏览器")
+                return []
+        
+        browser = p.chromium.launch(
+            headless=True,
+            executable_path=edge_path
+        )
         
         try:
             # 访问首页

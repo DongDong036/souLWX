@@ -210,11 +210,6 @@ class ArticleManagerApp:
         deepseek_frame = tk.Frame(right_frame, bg='#ffffff', bd=1, relief=tk.RAISED)
         deepseek_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # 浏览器标题
-        deepseek_title_frame = tk.Frame(deepseek_frame, bg='#e3f2fd')
-        deepseek_title_frame.pack(fill=tk.X, pady=5)
-        tk.Label(deepseek_title_frame, text="🤖 DeepSeek对话", font=('微软雅黑', 12, 'bold'), bg='#e3f2fd').pack(side=tk.LEFT, padx=10, pady=5)
-        
 
         
         # 嵌入DeepSeek对话窗口
@@ -230,11 +225,6 @@ class ArticleManagerApp:
         # 下方：股票池（30%高度）
         stock_frame = tk.Frame(right_frame, bg='#ffffff', bd=1, relief=tk.RAISED)
         stock_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, padx=5, pady=5)
-        
-        # 股票池标题
-        stock_title_frame = tk.Frame(stock_frame, bg='#e3f2fd')
-        stock_title_frame.pack(fill=tk.X, pady=5)
-        tk.Label(stock_title_frame, text="📈 股票池", font=('微软雅黑', 12, 'bold'), bg='#e3f2fd').pack(side=tk.LEFT, padx=10, pady=5)
         
         # 股票池内容
         stock_list_frame = tk.Frame(stock_frame, bg='#ffffff')
@@ -378,7 +368,29 @@ class ArticleManagerApp:
             if stock_text:
                 article_stocks = article.get('stocks', [])
                 standardized_stock = standardize_stock_code(stock_text)
-                if standardized_stock not in article_stocks:
+                
+                # 检查文章中的股票是否匹配
+                stock_found = False
+                for stock in article_stocks:
+                    if isinstance(stock, dict):
+                        # 检查股票代码
+                        stock_code = standardize_stock_code(stock.get('code', ''))
+                        if stock_code == standardized_stock:
+                            stock_found = True
+                            break
+                        # 检查股票名称
+                        stock_name = stock.get('name', '').lower()
+                        if stock_text.lower() in stock_name:
+                            stock_found = True
+                            break
+                    else:
+                        # 旧格式的股票数据
+                        stock_str = str(stock).lower()
+                        if standardized_stock.lower() in stock_str or stock_text.lower() in stock_str:
+                            stock_found = True
+                            break
+                
+                if not stock_found:
                     continue
             
             # 时间过滤
@@ -474,6 +486,20 @@ class ArticleManagerApp:
                 print(result.stdout)
                 print("采集脚本错误:")
                 print(result.stderr)
+                
+                # 检查是否有错误信息
+                if result.returncode != 0 or "ERROR" in result.stdout:
+                    # 检查是否是cookies问题
+                    if "未找到 cookies 文件" in result.stdout or "cookies 文件格式不正确" in result.stdout:
+                        self.root.after(0, lambda: messagebox.showinfo("需要登录", "请先运行 python src/login_save_cookies.py 完成登录"))
+                        self.root.after(0, lambda: self.status_var.set("需要登录"))
+                    elif "cookies 可能已过期" in result.stdout:
+                        self.root.after(0, lambda: messagebox.showinfo("登录过期", "cookies 可能已过期，建议重新运行 python src/login_save_cookies.py 更新登录状态"))
+                        self.root.after(0, lambda: self.status_var.set("登录过期"))
+                    else:
+                        self.root.after(0, lambda: messagebox.showerror("采集失败", f"采集脚本执行失败: {result.stderr}"))
+                        self.root.after(0, lambda: self.status_var.set("采集失败"))
+                    return
                 
                 # 重新加载数据
                 self.articles = self.load_articles()
@@ -611,7 +637,7 @@ class ArticleManagerApp:
             
             if article_url:
                 # 构建DeepSeek分析请求
-                prompt = f"请分析此链接内容：{article_url}"
+                prompt = f"帮我分析总结\"{article_url}\"的内容，并提取文章中提到的相关的股票名称信息输出成表格"
                 
                 # 尝试使用已打开的DeepSeek窗口
                 if hasattr(self, 'deepseek_hwnd') and self.deepseek_hwnd:
@@ -1288,7 +1314,7 @@ class ArticleManagerApp:
                 return
             
             # 构建DeepSeek分析请求
-            prompt = f"帮我分析总结\"{article_url}\"的内容，并提取相关的股票信息"
+            prompt = f"帮我分析总结\"{article_url}\"的内容，并提取文章中提到的相关的股票名称信息输出成表格"
             
             # 尝试使用已打开的DeepSeek窗口
             if hasattr(self, 'deepseek_hwnd') and self.deepseek_hwnd:

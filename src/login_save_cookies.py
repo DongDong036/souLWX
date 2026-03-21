@@ -10,6 +10,7 @@
 from playwright.sync_api import sync_playwright
 import json
 import time
+import os
 from datetime import datetime
 
 def login_and_save_cookies():
@@ -28,7 +29,18 @@ def login_and_save_cookies():
     
     with sync_playwright() as p:
         # 启动浏览器（可见模式）
-        browser = p.chromium.launch(headless=False)
+        # 尝试使用 Edge 浏览器
+        edge_path = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+        if not os.path.exists(edge_path):
+            edge_path = r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+            if not os.path.exists(edge_path):
+                print("❌ 未找到 Edge 浏览器，请确保已安装 Edge 浏览器")
+                return
+        
+        browser = p.chromium.launch(
+            headless=False,
+            executable_path=edge_path
+        )
         context = browser.new_context(
             user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             viewport={'width': 1920, 'height': 1080}
