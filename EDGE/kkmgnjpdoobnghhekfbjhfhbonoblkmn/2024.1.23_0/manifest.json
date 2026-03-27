@@ -1,0 +1,32 @@
+{
+   "action": {
+      "default_icon": {
+         "48": "static/img/logo48.png"
+      }
+   },
+   "background": {
+      "service_worker": "static/js/background.js"
+   },
+   "content_scripts": [ {
+      "css": [ "static/css/main.css" ],
+      "js": [ "static/js/jquery-3.1.1.min.js", "TableExport/js/xlsx.core.min.js", "TableExport/js/blob.js", "TableExport/js/FileSaver.min.js", "TableExport/js/tableexport.js", "static/js/insert.js" ],
+      "matches": [ "http://*/*", "https://*/*" ],
+      "run_at": "document_end"
+   } ],
+   "content_security_policy": {
+      "extension_pages": "script-src 'self'; object-src 'self';",
+      "web_accessible_resources": "*://*/*"
+   },
+   "description": "打开任意包含表格的网页，即页面中包含table标签元素时，会在表格上方自动生成3个按钮：导出为.xlsx、导出为.csv、导出为.txt，用户可根据自己的需求点击导出相应的文件，十分方便与快捷。",
+   "icons": {
+      "128": "static/img/logo128.png",
+      "48": "static/img/logo48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAo2oRVSo4/ayE8yxsbo8g2h71jEK/YvKzuxeAnlaA4wbzO8/22knfzNLJ6zFXWuw+kCuT4sYl0PC1+9IkBUvoPZwJrtEfJGNmS1UXhGzSe/iAlWjgTYHMewYeogGCqEhrPJgEmOOdbRPfsG68Ki6NlKagVtsM+U0cuXwaCcfEGhQtA/WdPTr2pfsgVlPVPTftd7MsRl8z0/1ZnO8F1x6EDxUJGVwoIkjImoVNXAzbg2jKEOBwLTVd1V0AVh8zuOo7vCjdpiPG7+M87nZm1wYydiM7yPC36Gk21lJ0erC2+40WYdbat8aDLyTPGWAUeCSva13nWWLKeUBXwE2Fc1dBtwIDAQAB",
+   "manifest_version": 3,
+   "name": "网页导表格",
+   "permissions": [ "tabs", "contextMenus", "storage", "activeTab", "*://*/*" ],
+   "short_name": "网页导表格",
+   "update_url": "https://edge.microsoft.com/extensionwebstorebase/v1/crx",
+   "version": "2024.1.23"
+}

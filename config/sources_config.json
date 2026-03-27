@@ -2,65 +2,285 @@
   "version": "1.0",
   "sources": [
     {
-      "id": "jiuyangongshe",
-      "name": "韭研公社",
-      "url": "https://www.jiuyangongshe.com/",
-      "enabled": true,
+      "name": "同花顺",
+      "url": "https://stock.10jqka.com.cn/bkfy_list/",
       "type": "community",
+      "max_articles": 10,
+      "interval": 30,
+      "enabled": true,
       "selectors": {
         "article_links": [
-          ".jc-home-main .module",
-          ".action-main .module",
-          ".tab-content .item",
-          ".time-article-item",
-          ".community-bar li",
-          ".broadcast-list li",
-          ".message-list li"
+          "a.title",
+          "a[class*=\"title\"]",
+          ".item a",
+          "a[href*=\"yuanchuang.10jqka.com.cn\"]",
+          "a[href*=\"stock.10jqka.com.cn\"]"
         ],
-        "title": "inner_text",
-        "content": [
-          ".text-box.text-justify.fsDetail",
-          ".text-box",
-          ".fsDetail",
-          ".pre",
-          ".expound",
-          ".article-content",
-          ".article-detail",
-          "section .text-box",
-          "section"
-        ],
-        "author": [
-          ".username-box .fs16-bold",
-          ".username-box .name .fs16-bold",
-          ".detail-container .fs16-bold",
-          "[data-v-234fd4b4].fs16-bold",
-          ".user-info .name",
-          ".author-name",
-          ".username",
-          ".user-name"
-        ],
-        "publish_time": [
-          ".username-box .date",
-          ".detail-container .date",
-          "[data-v-234fd4b4].date",
-          ".username-box .fs14",
-          ".publish-time",
-          ".time",
-          ".post-time"
+        "article_detail": {
+          "title": [
+            "title",
+            "h1",
+            ".article-title",
+            ".post-title",
+            ".title"
+          ],
+          "author": [
+            ".username-box .fs16-bold",
+            ".author-name",
+            ".username",
+            ".user-name"
+          ],
+          "publish_time": [
+            "meta[property=\"article:published_time\"]",
+            ".date",
+            ".time",
+            ".publish-time",
+            ".post-time",
+            ".article-time"
+          ],
+          "content": [
+            "meta[name=\"description\"]",
+            ".article-content",
+            ".post-content",
+            ".content"
+          ],
+          "stocks": [
+            "meta[name=\"keywords\"]"
+          ]
+        },
+        "related_urls": [
+          {
+            "url": "http://stock.10jqka.com.cn/20250822/c670564887.shtml",
+            "text": "李斌回应新车定价：蔚来活下去最重要",
+            "selector": ".item a"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20250822/c670567799.shtml",
+            "text": "光大证券触及涨停",
+            "selector": ".item a"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20250822/c670567432.shtml",
+            "text": "科创50涨超7％",
+            "selector": ".item a"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20250822/c670558023.shtml",
+            "text": "英伟达要求暂停生产H20芯片",
+            "selector": ".item a"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20250821/c670524952.shtml",
+            "text": "统计称今年以来股民人均赚超2万元 股民赚钱“因人而异”",
+            "selector": ".item a"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20250821/c670538249.shtml",
+            "text": "DeepSeek官微留言：UE8M0 FP8是针对即将发布的下一代国产芯片设计",
+            "selector": ".item a"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675511489.shtml",
+            "text": "中信建投：特斯拉(TSLA.US)美国光伏制造布局提速 中国TOPCon专利迎来价值兑现",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675509467.shtml",
+            "text": "新型工业网络典型应用场景研究及产业发展建议",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675508164.shtml",
+            "text": "2025年我国电信业发展述评：增长压力下的价值重塑与转型突围",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675507175.shtml",
+            "text": "汽车股尾盘涨幅扩大 油价上行强化新能源优势 机构看好3月新能源出口增速向上",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675507092.shtml",
+            "text": "中金发布研报称，GTC 2026大会上，英伟达升级Rubin液冷方案，当前Rubin GPU的功耗已经突破2000W，Vera Rubin NVL 72单机柜功率已达225kW左右，传统风冷逐渐推出历史舞台，液冷在Rubin一代已 ...",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675506509.shtml",
+            "text": "锂电产业链投资机遇凸显！我国锂电池领域现有近15万项相关专利",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675506080.shtml",
+            "text": "OFC大会乐观指引光模块需求，长飞光纤、福晶科技等多股涨停",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675506017.shtml",
+            "text": "光纤概念股拉升，长飞光纤等股涨停",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675505891.shtml",
+            "text": "申万宏源：油运高景气传导至造船 新造船价有望结束分化整体回升",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675505853.shtml",
+            "text": "光纤概念股拉升，长飞光纤等多股涨停",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675505823.shtml",
+            "text": "光纤光缆概念异动 长飞光纤涨停",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675505579.shtml",
+            "text": "石墨烯板块短线拉升，普邦股份、德尔未来双双涨停",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675505415.shtml",
+            "text": "国泰海通：服务消费迎政策利好 传统消费格局改善",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675505170.shtml",
+            "text": "国金证券：矿山机械景气拐点向上 国内企业多重成长机遇共振",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675504892.shtml",
+            "text": "天风证券缪欣君：AI 不是软件的“终结者”而是“加速器”，软件企业估值有待重构",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675504888.shtml",
+            "text": "A股寒潮来袭，高股息板块成避风港，公用事业、银行板块个股普涨",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675504768.shtml",
+            "text": "孛璞半导体：AI算力催生后端网络变革 全光交换破解电互联瓶颈",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675504499.shtml",
+            "text": "国金证券：高油气价格持续超预期 联动影响开始逐步显现",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675504456.shtml",
+            "text": "2026年油运龙头利润有望创新高 港口航运概念回暖，招商南油涨停",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://stock.10jqka.com.cn/20260324/c675504455.shtml",
+            "text": "三部委发文规范基层中医药服务，生物医药板块午后走强",
+            "selector": "a[href*=\"stock.10jqka.com.cn\"]"
+          },
+          {
+            "url": "http://field.10jqka.com.cn/20260324/c675510874.shtml",
+            "text": "商业航天数据报告：存续企业超390家，头部企业上游国产化率超90%",
+            "selector": "a[href*=\"/202\"]"
+          },
+          {
+            "url": "http://fund.10jqka.com.cn/20260324/c675504268.shtml",
+            "text": "机器人板块高开回落，关注机器人ETF易方达布局机会",
+            "selector": "a[href*=\"/202\"]"
+          }
         ]
       },
-      "max_articles": 10,
-      "interval": 30
+      "id": 5
     },
     {
-      "name": "测试源",
-      "url": "https://example.com",
-      "type": "news",
+      "name": "韭研公社",
+      "url": "https://www.jiuyangongshe.com/",
+      "type": "community",
+      "max_articles": 10,
+      "interval": 30,
       "enabled": true,
-      "max_articles": 5,
-      "interval": 60,
-      "id": "___",
-      "selectors": {}
+      "selectors": {
+        "article_links": [
+          "a[href^=\"/a/\"]",
+          "a[href*=\"/a/\"]"
+        ],
+        "article_detail": {
+          "title": [
+            "title",
+            "h1",
+            ".article-title",
+            ".post-title",
+            ".title"
+          ],
+          "author": [
+            ".username-box .fs16-bold",
+            ".author-name",
+            ".username",
+            ".user-name"
+          ],
+          "publish_time": [
+            "meta[property=\"article:published_time\"]",
+            ".date",
+            ".time",
+            ".publish-time",
+            ".post-time",
+            ".article-time"
+          ],
+          "content": [
+            "meta[name=\"description\"]",
+            ".article-content",
+            ".post-content",
+            ".content"
+          ],
+          "stocks": [
+            "meta[name=\"keywords\"]"
+          ]
+        },
+        "related_urls": [
+          {
+            "url": "https://www.jiuyangongshe.com/a/2gjjqy03p5d",
+            "text": "阿里达摩院2026玄铁RISC-V生态大会正式发布新一代旗舰处理器玄铁C950正式发布。据介绍，该处理器采用5nm制程，频率达3.2GHz，单核性能首次突破70分，综合性能为上一代玄铁C920的3倍以上。 对比维度 玄铁 C920 玄铁 C950 发布时间 2023 年 11 月 21 日 2026 年 3 月 24 日 产品定位 中高端高性能 RISC-V 处理器，面向边缘侧 / 端侧场景 旗舰级服务器级 RISC-V 处理器，面向云端 / 高性能计算场景 核心架构 64 位 RISC-V R",
+            "selector": "a[href^=\"/a/\"]"
+          },
+          {
+            "url": "https://www.jiuyangongshe.com/a/jnnb6kly4a",
+            "text": "北京京运通科技股份有限公司的主营业务是高端装备制造业务、新材料业务、新能源发电业务。公司的主要产品是单晶硅生长炉、金刚线开方机、金刚线切片机、区熔单晶硅炉、碳化硅晶体生长设备、金刚石生长炉。 公司光伏设备包括单晶硅生长炉、多晶硅铸锭炉、金刚线开方机、金刚线切片机、多晶检测自动化设备等。半导体设备包括区熔单晶硅炉、碳化硅晶体生长设备等。 2025年2月14日互动易：公司半导体设备主要用于生产半导体相关材料，包括区熔单晶硅炉、碳化硅晶体生长设备、金刚石生长炉等。 公司主营业务包括新能源发电业务，新能",
+            "selector": "a[href^=\"/a/\"]"
+          },
+          {
+            "url": "https://www.jiuyangongshe.com/a/jnnfw4s479",
+            "text": "一、板块热议： 电力：2026年政府工作报告中，“算电协同”首次被写入，明确列为新基建工程。（华电辽能、中南文化、韶能股份、粤电力A、辽宁能源等） 锂电：机构称，锂电池产业链3月预排产环比明显回升，多个环节的价格趋势有望向上，量价齐升可期。（丽岛新材、众源新材、孚日股份、西藏城投、国城矿业等） 算力：国家数据局局长表示，3月中国日均Token调用量已突破140万亿，两年增长超千倍。（奥瑞德、莲花控股、真视通、冰轮环境等） 光伏：马斯克称，“Terafab”项目目标是每年生产超过1太瓦的计算能力，",
+            "selector": "a[href^=\"/a/\"]"
+          },
+          {
+            "url": "https://www.jiuyangongshe.com/a/jnnfd5xl4f",
+            "text": "盘中段子汇总 国家数据局表示，下一步将会同相关部门大力推进算电协同工程，确保枢纽节点新建算力设施绿电应用占比达到80%以上（华电辽能、韶能股份、华银电力、粤电力A、绿发电力、华光环能、浙江新能、辽宁能源、汉缆股份、节能风电、迪森股份、金开新能等） 伊朗的穆杰塔巴・哈梅内伊已同意与美国谈判并达成协议 国家数据局：将深入实施新一轮高质量数据集建设行动计划 工信部：加快推动工业数据标准研制 发展壮大数据咨询、数据治理、数据标注等数据服务企业 法拉第旋光片断供是2026年Q2光模块产业链最大的黑天鹅（东",
+            "selector": "a[href^=\"/a/\"]"
+          },
+          {
+            "url": "https://www.jiuyangongshe.com/a/114mbammh7r",
+            "text": "公社出品，值得信赖，今日涨停简图如下，后续将每日实时更新。 你经历的所有的困苦都是有意义的，因为这是你要承担重任的先兆。截至收盘，上证上涨1.78%，深证上涨1.43%，创业板上涨0.50%，以下是今日涨停复盘简析，详细版请查阅网站或APP异动解析。 与君共赏 小重山·柳暗花明春事深 章良能〔宋代〕 柳暗花明春事深。小阑红芍药，已抽簪。雨馀风软碎鸣禽。迟迟日，犹带一分阴。 往事莫沉吟。身闲时序好，且登临。旧游无处不堪寻。无寻处，惟有少年心。 译文 柳色春花明丽清新，春意已深。小花栏里的红芍药，已",
+            "selector": "a[href^=\"/a/\"]"
+          },
+          {
+            "url": "https://www.jiuyangongshe.com/a/2gjjxhq8vkk",
+            "text": "一份可直接对照、按受益强度排序的LPG涨价核心受益清单（含代码、一句话逻辑、关键催化/弹性），一眼看懂谁最受益、谁只是蹭热点。 一、第一梯队：直接受益（库存增值+提价，业绩弹性最大） 1. 605090 九丰能源（最强龙头） - 逻辑：LPG进口+仓储+销售全链条，华南龙头，自有LPG储罐14.4万方，涨价直接赚库存+价差；同时有PDH深加工，双重弹性。 - 催化：进口货源偏紧、现货跟涨、库存重估快。 2. 002221 东华能源（纯LPG+PDH龙头） - 逻辑：国内LPG进口规模前列，“船-",
+            "selector": "a[href^=\"/a/\"]"
+          },
+          {
+            "url": "https://www.jiuyangongshe.com/a/2z0j14dvcbl",
+            "text": "在今天举行的国务院新闻办新闻发布会上，国家数据局有关负责人介绍，到今年3月，我国日均词元调用量超过140万亿，中国的人工智能发展进入快速增长阶段。国家数据局局长刘烈宏介绍说，截至2025年年底，全国已建成高质量数据集超过了10万个。到今年3月，我国日均Token的调用量，也就是词元的调用量，已经超过了140万亿，相比2024年初的1000亿增长了1000多倍，相比2025年底的100万亿，三个月时间又增长了40%多。 网宿科技，AI 大模型 Token 产业链中，Token 跨境传输 / 分发、",
+            "selector": "a[href^=\"/a/\"]"
+          },
+          {
+            "url": "https://www.jiuyangongshe.com/a/3fghdydjtd6",
+            "text": "AI 智能体 “小龙虾”（OpenClaw/QClaw）的核心原理是：本地执行框架 + 云端大模型大脑 + 感知 - 推理 - 行动 - 观察闭环，让 AI 能像人一样操作电脑、自动完成复杂任务。 一、腾讯（腾讯云 / 微信生态） 核心布局：推出 “腾讯龙虾”，接入 OpenClaw 生态，面向企业与个人提供智能体服务。 受益股： 群兴玩具（002575）：已与腾讯签订算力合作协议 并产生利润受益 拓维信息（002261）：华为昇腾 + 腾讯双生态，提供底层算力与定制化方案。 利通电子（6036",
+            "selector": "a[href^=\"/a/\"]"
+          }
+        ]
+      },
+      "id": 6
     }
   ],
   "global": {

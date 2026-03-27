@@ -1,0 +1,31 @@
+caption button.btn-default{
+	cursor: pointer;
+}
+caption button.btn-default:hover{
+	background: #ddd !important;
+}
+caption button.btn-default.xlsx{
+	border: 2px solid #026f06;
+}
+caption button.btn-default.csv{
+	border: 2px solid #800c94;
+}
+caption button.btn-default.txt{
+	border: 2px solid #003cc7;
+}
+// caption button.btn-default i.iconfont{
+// 	position: absolute;
+// 	left: 10px;
+// 	top: -5px;
+// 	width: 25px;
+// 	height: 41px;
+// }
+// caption button.btn-default.xlsx i.iconfont{
+// 	background: #026f06;
+// }
+// caption button.btn-default.csv i.iconfont{
+// 	background: #800c94;
+// }
+// caption button.btn-default.txt i.iconfont{
+// 	background: #003cc7;
+// }
