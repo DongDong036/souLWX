@@ -114,10 +114,7 @@ class ArticleManagerApp:
                                bg='#4CAF50', fg='white', **button_style, activebackground='#45a049')
         collect_btn.pack(side=tk.LEFT, padx=8)
         
-        # 导出按钮（常用功能）
-        export_btn = tk.Button(left_toolbar, text="📤 导出", command=self.export_data, 
-                             bg='#FF9800', fg='white', **button_style, activebackground='#F57C00')
-        export_btn.pack(side=tk.LEFT, padx=8)
+
         
         # 显示全部按钮
         self.show_all_btn = tk.Button(left_toolbar, text="📄 显示当天", command=self.show_all_articles, 
@@ -137,11 +134,6 @@ class ArticleManagerApp:
         config_btn = tk.Button(right_toolbar, text="⚙️ 配置", command=self.open_api_config, 
                              bg='#9C27B0', fg='white', **button_style, activebackground='#7B1FA2')
         config_btn.pack(side=tk.RIGHT, padx=8)
-        
-        # 清空按钮（危险操作，放在右侧）
-        clear_btn = tk.Button(right_toolbar, text="🗑️ 清空", command=self.clear_articles, 
-                             bg='#f44336', fg='white', **button_style, activebackground='#d32f2f')
-        clear_btn.pack(side=tk.RIGHT, padx=8)
         
         # 日期导航
         date_frame = tk.Frame(toolbar, bg='#f8f9fa')
@@ -166,33 +158,16 @@ class ArticleManagerApp:
                            bg='#2196F3', fg='white', activebackground='#1976D2')
         next_btn.pack(side=tk.LEFT, padx=2)
         
-        # 搜索框
+        # 搜索框（合并文章和股票搜索）
         search_frame = tk.Frame(toolbar, bg='#f8f9fa')
         search_frame.pack(side=tk.RIGHT, padx=10)
         
         tk.Label(search_frame, text="搜索:", font=('微软雅黑', 10, 'bold'), bg='#f8f9fa').pack(side=tk.LEFT, padx=5)
         self.search_var = tk.StringVar()
         self.search_var.trace('w', self.filter_articles)
-        search_entry = tk.Entry(search_frame, textvariable=self.search_var, width=30, 
+        search_entry = tk.Entry(search_frame, textvariable=self.search_var, width=60, 
                                font=('微软雅黑', 10), bd=2, relief=tk.GROOVE)
         search_entry.pack(side=tk.LEFT, padx=5)
-        
-        # 股票搜索
-        tk.Label(search_frame, text="股票:", font=('微软雅黑', 10, 'bold'), bg='#f8f9fa').pack(side=tk.LEFT, padx=10)
-        self.stock_var = tk.StringVar()
-        self.stock_var.trace('w', self.filter_articles)
-        stock_entry = tk.Entry(search_frame, textvariable=self.stock_var, width=20, 
-                              font=('微软雅黑', 10), bd=2, relief=tk.GROOVE)
-        stock_entry.pack(side=tk.LEFT, padx=5)
-        
-        # 筛选下拉框
-        tk.Label(search_frame, text="类型:", font=('微软雅黑', 10, 'bold'), bg='#f8f9fa').pack(side=tk.LEFT, padx=10)
-        self.type_var = tk.StringVar(value="全部")
-        type_combo = ttk.Combobox(search_frame, textvariable=self.type_var, 
-                                 values=["全部", "今日", "本周", "本月"], 
-                                 width=10, font=('微软雅黑', 10))
-        type_combo.pack(side=tk.LEFT, padx=5)
-        type_combo.bind('<<ComboboxSelected>>', self.filter_articles)
         
         # 主内容区（左右分栏）
         main_paned = tk.PanedWindow(self.root, orient=tk.HORIZONTAL, sashwidth=5, bg='#ffffff')
@@ -463,8 +438,6 @@ class ArticleManagerApp:
     def filter_articles(self, *args):
         """筛选文章"""
         search_text = self.search_var.get().lower()
-        stock_text = self.stock_var.get().strip().upper()
-        time_filter = self.type_var.get()
         
         # 清空列表
         for item in self.article_tree.get_children():
@@ -479,7 +452,6 @@ class ArticleManagerApp:
             return code
         
         # 筛选
-        now = datetime.now()
         filtered_articles = []
         
         # 先收集所有符合条件的文章
@@ -489,57 +461,41 @@ class ArticleManagerApp:
             author = article.get('author', '').lower()
             content = article.get('content', '').lower()
             
-            if search_text and search_text not in title and search_text not in author and search_text not in content:
-                continue
+            # 检查文章内容是否匹配
+            article_match = not search_text or search_text in title or search_text in author or search_text in content
             
-            # 股票过滤
-            if stock_text:
+            # 检查股票是否匹配
+            stock_match = not search_text
+            if search_text:
                 article_stocks = article.get('stocks', [])
-                standardized_stock = standardize_stock_code(stock_text)
+                standardized_stock = standardize_stock_code(search_text)
                 
-                # 检查文章中的股票是否匹配
-                stock_found = False
                 for stock in article_stocks:
                     if isinstance(stock, dict):
                         # 检查股票代码
                         stock_code = standardize_stock_code(stock.get('code', ''))
                         if stock_code == standardized_stock:
-                            stock_found = True
+                            stock_match = True
                             break
                         # 检查股票名称
                         stock_name = stock.get('name', '').lower()
-                        if stock_text.lower() in stock_name:
-                            stock_found = True
+                        if search_text.lower() in stock_name:
+                            stock_match = True
                             break
                     else:
                         # 旧格式的股票数据
                         stock_str = str(stock).lower()
-                        if standardized_stock.lower() in stock_str or stock_text.lower() in stock_str:
-                            stock_found = True
+                        if standardized_stock.lower() in stock_str or search_text.lower() in stock_str:
+                            stock_match = True
                             break
-                
-                if not stock_found:
-                    continue
             
-            # 时间过滤
-            if time_filter != "全部":
-                pub_time_str = article.get('publish_time', '')
-                try:
-                    pub_date = datetime.strptime(pub_time_str, '%Y-%m-%d %H:%M:%S')
-                    if time_filter == "今日":
-                        if pub_date.date() != now.date():
-                            continue
-                    elif time_filter == "本周":
-                        if now - pub_date > timedelta(days=7):
-                            continue
-                    elif time_filter == "本月":
-                        if now - pub_date > timedelta(days=30):
-                            continue
-                except:
-                    pass
-            
-            # 添加到筛选列表
-            filtered_articles.append(article)
+            # 如果文章内容或股票匹配，则保留
+            if article_match or stock_match:
+                # 添加到筛选列表
+                filtered_articles.append(article)
+        
+        # 保存筛选后的文章列表，用于选择时获取正确的文章对象
+        self.filtered_articles = filtered_articles
         
         # 然后按时间顺序添加到列表，序号从总数开始递减
         total_articles = len(filtered_articles)
@@ -675,7 +631,7 @@ class ArticleManagerApp:
                         pub_time = article.get('publish_time', '')
                         source = article.get('source', '')
                         url = article.get('url', '')
-                        stocks = ', '.join(article.get('stocks', []))
+                        stocks = ', '.join(stock.get('name', '') for stock in article.get('stocks', []))
                         writer.writerow([i, title, author, pub_time, source, url, stocks])
             elif filename.endswith('.json'):
                 with open(filename, 'w', encoding='utf-8') as f:
@@ -696,6 +652,81 @@ class ArticleManagerApp:
             self.status_var.set(f"已导出：{filename}")
         except Exception as e:
             messagebox.showerror("导出失败", str(e))
+    
+    def import_data(self):
+        """导入数据"""
+        filetypes = [
+            ('CSV 表格', '*.csv'),
+            ('JSON 文件', '*.json'),
+            ('所有文件', '*.*')
+        ]
+        
+        filename = filedialog.askopenfilename(
+            title='导入数据',
+            filetypes=filetypes
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            imported_count = 0
+            
+            if filename.endswith('.csv'):
+                import csv
+                with open(filename, 'r', encoding='utf-8-sig') as f:
+                    reader = csv.reader(f)
+                    next(reader)  # 跳过表头
+                    for row in reader:
+                        if len(row) >= 6:
+                            article = {
+                                'title': row[1],
+                                'author': row[2],
+                                'publish_time': row[3],
+                                'source': row[4],
+                                'url': row[5]
+                            }
+                            # 解析股票信息
+                            if len(row) >= 7 and row[6]:
+                                stocks = []
+                                for stock_name in row[6].split(','):
+                                    stock_name = stock_name.strip()
+                                    if stock_name:
+                                        stocks.append({'name': stock_name})
+                                article['stocks'] = stocks
+                            else:
+                                article['stocks'] = []
+                            
+                            # 保存到数据库
+                            if self.db_manager.save_article(article):
+                                imported_count += 1
+            elif filename.endswith('.json'):
+                with open(filename, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    articles = data.get('articles', [])
+                    for article in articles:
+                        if self.db_manager.save_article(article):
+                            imported_count += 1
+            
+            # 重新加载文章列表
+            self.articles = self.load_articles()
+            # 根据当前显示模式重新筛选文章
+            if self.display_mode == 0:
+                # 显示当天
+                self.articles = self.db_manager.get_today_articles()
+            elif self.display_mode == 1:
+                # 显示全部
+                pass  # 已经是全部文章
+            elif self.display_mode == 2:
+                # 显示重要
+                self.articles = self.db_manager.get_important_articles()
+            self.load_article_list()
+            self.update_stats()
+            
+            messagebox.showinfo("导入成功", f"成功导入 {imported_count} 篇文章")
+            self.status_var.set(f"已导入 {imported_count} 篇文章")
+        except Exception as e:
+            messagebox.showerror("导入失败", str(e))
     
     def export_current_article(self):
         """导出当前文章"""
@@ -744,10 +775,19 @@ class ArticleManagerApp:
         selection = self.article_tree.selection()
         if selection:
             index = self.article_tree.index(selection[0])
-            if index < len(self.articles):
-                article = self.articles[index]
-                # 更新股票池显示
-                self.update_stock_list(article)
+            # 检查是否有筛选后的文章列表
+            if hasattr(self, 'filtered_articles') and len(self.filtered_articles) > 0:
+                # 使用筛选后的文章列表
+                if index < len(self.filtered_articles):
+                    article = self.filtered_articles[index]
+                    # 更新股票池显示
+                    self.update_stock_list(article)
+            else:
+                # 使用原始文章列表
+                if index < len(self.articles):
+                    article = self.articles[index]
+                    # 更新股票池显示
+                    self.update_stock_list(article)
     
     def open_article_url(self, event=None):
         """在浏览器打开原文并更新股票池显示"""
@@ -757,8 +797,19 @@ class ArticleManagerApp:
             return
         
         index = self.article_tree.index(selection[0])
-        if index < len(self.articles):
-            article = self.articles[index]
+        article = None
+        
+        # 检查是否有筛选后的文章列表
+        if hasattr(self, 'filtered_articles') and len(self.filtered_articles) > 0:
+            # 使用筛选后的文章列表
+            if index < len(self.filtered_articles):
+                article = self.filtered_articles[index]
+        else:
+            # 使用原始文章列表
+            if index < len(self.articles):
+                article = self.articles[index]
+        
+        if article:
             url = article.get('url', '')
             
             # 更新股票池显示
@@ -969,19 +1020,8 @@ class ArticleManagerApp:
     def show_today_articles(self):
         """显示当天文章"""
         try:
-            # 加载所有文章
-            all_articles = self.load_articles()
-            # 筛选当天文章
-            today = datetime.now().date()
-            today_articles = []
-            for article in all_articles:
-                pub_time_str = article.get('publish_time', '')
-                try:
-                    pub_date = datetime.strptime(pub_time_str, '%Y-%m-%d %H:%M:%S').date()
-                    if pub_date == today:
-                        today_articles.append(article)
-                except:
-                    pass
+            # 从数据库获取当天文章
+            today_articles = self.db_manager.get_today_articles()
             # 更新文章列表
             self.articles = today_articles
             self.load_article_list()
@@ -996,13 +1036,8 @@ class ArticleManagerApp:
     def show_important_articles(self):
         """显示重要文章"""
         try:
-            # 加载所有文章
-            all_articles = self.load_articles()
-            # 筛选重要文章
-            important_articles = []
-            for article in all_articles:
-                if article.get('importance', False):
-                    important_articles.append(article)
+            # 从数据库获取重要文章
+            important_articles = self.db_manager.get_important_articles()
             # 更新文章列表
             self.articles = important_articles
             self.load_article_list()
@@ -1343,46 +1378,63 @@ class ArticleManagerApp:
                 
                 # 计算过期时间
                 cutoff_date = datetime.now() - timedelta(days=days)
+                cutoff_date_str = cutoff_date.strftime('%Y-%m-%d %H:%M:%S')
                 
-                # 过滤文章
-                filtered_articles = []
-                removed_count = 0
+                # 获取作者黑名单
+                blacklist = [blacklist_listbox.get(i) for i in range(blacklist_listbox.size())]
                 
-                for article in self.articles:
-                    # 检查是否在黑名单中
-                    author = article.get('author', '')
-                    blacklist = [blacklist_listbox.get(i) for i in range(blacklist_listbox.size())]
-                    if author in blacklist:
-                        # 从数据库中删除
-                        if 'id' in article:
-                            self.db_manager.delete_article(article['id'])
-                        removed_count += 1
-                        continue
-                    
-                    # 检查是否过期
-                    pub_time_str = article.get('publish_time', '')
-                    if pub_time_str:
-                        try:
-                            pub_time = datetime.strptime(pub_time_str, '%Y-%m-%d %H:%M:%S')
-                            if pub_time < cutoff_date:
-                                # 检查是否标记为重要
-                                if keep_importance and article.get('importance', False):
-                                    filtered_articles.append(article)
-                                else:
-                                    # 从数据库中删除
-                                    if 'id' in article:
-                                        self.db_manager.delete_article(article['id'])
-                                    removed_count += 1
-                                    continue
-                        except:
-                            pass
-                    
-                    filtered_articles.append(article)
+                # 从数据库中直接删除过期文章
+                conn = self.db_manager._get_connection()
+                cursor = conn.cursor()
                 
-                # 更新文章列表
-                self.articles = filtered_articles
+                # 构建删除条件
+                if keep_importance:
+                    # 保留重要文章
+                    if blacklist:
+                        # 删除黑名单作者的文章和过期且非重要的文章
+                        placeholders = ','.join('?' for _ in blacklist)
+                        cursor.execute(f'''
+                        DELETE FROM articles 
+                        WHERE (author IN ({placeholders}) OR publish_time < ? AND importance = 0)
+                        ''', (*blacklist, cutoff_date_str))
+                    else:
+                        # 只删除过期且非重要的文章
+                        cursor.execute('''
+                        DELETE FROM articles 
+                        WHERE publish_time < ? AND importance = 0
+                        ''', (cutoff_date_str,))
+                else:
+                    # 不保留重要文章
+                    if blacklist:
+                        # 删除黑名单作者的文章和过期文章
+                        placeholders = ','.join('?' for _ in blacklist)
+                        cursor.execute(f'''
+                        DELETE FROM articles 
+                        WHERE author IN ({placeholders}) OR publish_time < ?
+                        ''', (*blacklist, cutoff_date_str))
+                    else:
+                        # 只删除过期文章
+                        cursor.execute('''
+                        DELETE FROM articles 
+                        WHERE publish_time < ?
+                        ''', (cutoff_date_str,))
+                
+                removed_count = cursor.rowcount
+                conn.commit()
+                conn.close()
+                
                 # 重新从数据库加载文章，确保数据一致性
                 self.articles = self.load_articles()
+                # 根据当前显示模式重新筛选文章
+                if self.display_mode == 0:
+                    # 显示当天
+                    self.articles = self.db_manager.get_today_articles()
+                elif self.display_mode == 1:
+                    # 显示全部
+                    pass  # 已经是全部文章
+                elif self.display_mode == 2:
+                    # 显示重要
+                    self.articles = self.db_manager.get_important_articles()
                 self.load_article_list()
                 self.update_stats()
                 
@@ -1390,17 +1442,40 @@ class ArticleManagerApp:
             except Exception as e:
                 messagebox.showerror("清理失败", str(e), parent=organize_win)
         
+        # 保存配置按钮
         save_btn = tk.Button(top_btn_frame, text="保存配置", command=save_config, 
                            bg='#4CAF50', fg='white', font=('微软雅黑', 10, 'bold'), 
-                           padx=15, pady=6, activebackground='#45a049', 
+                           width=10, padx=10, pady=6, activebackground='#45a049', 
                            relief=tk.GROOVE, bd=2)
         save_btn.pack(side=tk.LEFT, padx=8)
         
+        # 应用清理按钮
         apply_btn = tk.Button(top_btn_frame, text="应用清理", command=apply_cleanup, 
-                            bg='#2196F3', fg='white', font=('微软雅黑', 10, 'bold'), 
-                            padx=15, pady=6, activebackground='#1976D2', 
+                            bg='#f44336', fg='white', font=('微软雅黑', 10, 'bold'), 
+                            width=10, padx=10, pady=6, activebackground='#d32f2f', 
                             relief=tk.GROOVE, bd=2)
         apply_btn.pack(side=tk.LEFT, padx=8)
+        
+        # 清空按钮（危险操作，放在右侧）
+        clear_btn = tk.Button(top_btn_frame, text="清空所有", command=self.clear_articles, 
+                             bg='#f44336', fg='white', font=('微软雅黑', 10, 'bold'), 
+                             width=10, padx=10, pady=6, activebackground='#d32f2f', 
+                             relief=tk.GROOVE, bd=2)
+        clear_btn.pack(side=tk.RIGHT, padx=8)
+        
+        # 导出按钮
+        export_btn = tk.Button(top_btn_frame, text="导出", command=self.export_data, 
+                             bg='#FF9800', fg='white', font=('微软雅黑', 10, 'bold'), 
+                             width=10, padx=10, pady=6, activebackground='#F57C00', 
+                             relief=tk.GROOVE, bd=2)
+        export_btn.pack(side=tk.RIGHT, padx=8)
+        
+        # 导入按钮
+        import_btn = tk.Button(top_btn_frame, text="导入", command=self.import_data, 
+                             bg='#2196F3', fg='white', font=('微软雅黑', 10, 'bold'), 
+                             width=10, padx=10, pady=6, activebackground='#1976D2', 
+                             relief=tk.GROOVE, bd=2)
+        import_btn.pack(side=tk.RIGHT, padx=8)
         
 
         
@@ -1608,27 +1683,31 @@ class ArticleManagerApp:
     def show_stock_context_menu(self, event):
         """显示股票池右键菜单"""
         item = self.stock_tree.identify_row(event.y)
+        column = self.stock_tree.identify_column(event.x)
         if item:
             self.stock_tree.selection_set(item)
+            # 记录点击的单元格信息
+            self.last_clicked_cell = (item, column)
             self.stock_context_menu.post(event.x_root, event.y_root)
     
     def delete_selected_stock(self):
         """删除选中的股票"""
-        # 获取选中的股票
-        selection = self.stock_tree.selection()
-        if not selection:
+        # 检查是否有点击的单元格信息
+        if not hasattr(self, 'last_clicked_cell') or not self.last_clicked_cell:
             return
         
-        # 获取股票名称
-        item = selection[0]
+        item, column = self.last_clicked_cell
         values = self.stock_tree.item(item, 'values')
         
-        # 遍历所有股票，找到非空的股票名称
-        stock_names = [v for v in values if v]
-        if stock_names:
-            # 只删除第一个非空股票
-            stock_name = stock_names[0]
-            self.delete_stock(stock_name)
+        # 将列索引转换为整数（例如 '#1' → 0）
+        try:
+            col_index = int(column[1:]) - 1
+            if 0 <= col_index < len(values):
+                stock_name = values[col_index]
+                if stock_name:
+                    self.delete_stock(stock_name)
+        except (ValueError, IndexError):
+            pass
     
     def delete_stock(self, stock_name):
         """删除股票池中的股票"""
@@ -1650,8 +1729,22 @@ class ArticleManagerApp:
             success = stock_pool_manager.remove_stock_from_pool(article_id, stock_name)
             
             if success:
+                # 保存当前显示模式
+                current_mode = self.display_mode
                 # 重新加载文章数据
                 self.articles = self.load_articles()
+                # 根据当前显示模式重新筛选文章
+                if current_mode == 0:
+                    # 显示当天
+                    self.articles = self.db_manager.get_today_articles()
+                elif current_mode == 1:
+                    # 显示全部
+                    pass  # 已经是全部文章
+                elif current_mode == 2:
+                    # 显示重要
+                    self.articles = self.db_manager.get_important_articles()
+                # 重新加载文章列表
+                self.load_article_list()
                 # 找到重新加载后的对应文章对象
                 updated_article = None
                 for art in self.articles:
@@ -1687,8 +1780,22 @@ class ArticleManagerApp:
             success = stock_pool_manager.delete_stock_pool(article_id)
             
             if success:
+                # 保存当前显示模式
+                current_mode = self.display_mode
                 # 重新加载文章数据
                 self.articles = self.load_articles()
+                # 根据当前显示模式重新筛选文章
+                if current_mode == 0:
+                    # 显示当天
+                    self.articles = self.db_manager.get_today_articles()
+                elif current_mode == 1:
+                    # 显示全部
+                    pass  # 已经是全部文章
+                elif current_mode == 2:
+                    # 显示重要
+                    self.articles = self.db_manager.get_important_articles()
+                # 重新加载文章列表
+                self.load_article_list()
                 # 找到重新加载后的对应文章对象
                 updated_article = None
                 for art in self.articles:
@@ -1723,20 +1830,72 @@ class ArticleManagerApp:
             # 创建手动添加股票的对话框
             import tkinter.simpledialog
             
-            # 输入股票名称
-            stock_name = tkinter.simpledialog.askstring("手动添加股票", "请输入股票名称：")
-            if not stock_name:
+            # 输入股票名称，支持批量输入
+            stock_input = tkinter.simpledialog.askstring("手动添加股票", "请输入股票名称（支持批量输入，使用逗号、顿号、分号等分隔）：")
+            if not stock_input:
+                return
+            
+            # 解析输入的股票名称，支持多种分隔符
+            stocks = []
+            # 按行分割
+            lines = stock_input.strip().split('\n')
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # 尝试不同的分隔符
+                if '\t' in line:
+                    parts = line.split('\t')
+                elif ',' in line:
+                    parts = line.split(',')
+                elif ';' in line:
+                    parts = line.split(';')
+                elif ':' in line:
+                    parts = line.split(':')
+                elif '|' in line:
+                    parts = line.split('|')
+                elif '、' in line:
+                    parts = line.split('、')
+                else:
+                    parts = line.split()
+                
+                # 清理空白
+                parts = [part.strip() for part in parts if part.strip()]
+                for part in parts:
+                    stocks.append(part)
+            
+            if not stocks:
+                messagebox.showinfo("提示", "未识别到股票名称")
                 return
             
             # 导入股票池管理器
             from utils.stock_pool import stock_pool_manager
             
-            # 手动添加股票
-            success = stock_pool_manager.manual_add_stock(article_id, stock_name)
+            # 批量添加股票
+            new_stocks_added = 0
+            for stock_name in stocks:
+                success = stock_pool_manager.manual_add_stock(article_id, stock_name)
+                if success:
+                    new_stocks_added += 1
             
-            if success:
+            if new_stocks_added > 0:
+                # 保存当前显示模式
+                current_mode = self.display_mode
                 # 重新加载文章数据
                 self.articles = self.load_articles()
+                # 根据当前显示模式重新筛选文章
+                if current_mode == 0:
+                    # 显示当天
+                    self.articles = self.db_manager.get_today_articles()
+                elif current_mode == 1:
+                    # 显示全部
+                    pass  # 已经是全部文章
+                elif current_mode == 2:
+                    # 显示重要
+                    self.articles = self.db_manager.get_important_articles()
+                # 重新加载文章列表
+                self.load_article_list()
                 # 找到重新加载后的对应文章对象
                 updated_article = None
                 for art in self.articles:
@@ -1748,7 +1907,7 @@ class ArticleManagerApp:
                     self.update_stock_list(updated_article)
                 else:
                     self.update_stock_list(article)
-                messagebox.showinfo("添加成功", f"成功添加股票：{stock_name}")
+                messagebox.showinfo("添加成功", f"成功添加 {new_stocks_added} 只股票")
             else:
                 messagebox.showinfo("提示", "添加股票失败")
     
@@ -1863,8 +2022,22 @@ class ArticleManagerApp:
                             new_stocks_added += 1
                 
                 if new_stocks_added > 0:
+                    # 保存当前显示模式
+                    current_mode = self.display_mode
                     # 重新加载文章数据
                     self.articles = self.load_articles()
+                    # 根据当前显示模式重新筛选文章
+                    if current_mode == 0:
+                        # 显示当天
+                        self.articles = self.db_manager.get_today_articles()
+                    elif current_mode == 1:
+                        # 显示全部
+                        pass  # 已经是全部文章
+                    elif current_mode == 2:
+                        # 显示重要
+                        self.articles = self.db_manager.get_important_articles()
+                    # 重新加载文章列表
+                    self.load_article_list()
                     # 找到重新加载后的对应文章对象
                     updated_article = None
                     for art in self.articles:
@@ -1909,6 +2082,18 @@ class ArticleManagerApp:
             elif ',' in line:
                 # 逗号分隔
                 parts = line.split(',')
+            elif ';' in line:
+                # 分号分隔
+                parts = line.split(';')
+            elif ':' in line:
+                # 冒号分隔
+                parts = line.split(':')
+            elif '|' in line:
+                # 竖线分隔
+                parts = line.split('|')
+            elif '、' in line:
+                # 顿号分隔
+                parts = line.split('、')
             else:
                 # 空格分隔
                 parts = line.split()

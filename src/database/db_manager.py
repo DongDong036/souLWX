@@ -68,13 +68,16 @@ class DatabaseManager:
             existing = cursor.fetchone()
             
             if existing:
-                # 更新现有文章
+                # 更新现有文章，保留重要性标记
                 article_id = existing[0]
+                # 先获取原有的重要性标记
+                cursor.execute('SELECT importance FROM articles WHERE id = ?', (article_id,))
+                existing_importance = cursor.fetchone()[0]
+                
                 cursor.execute('''
                 UPDATE articles SET 
                     title = ?, author = ?, publish_time = ?, 
-                    content = ?, source = ?, word_count = ?, 
-                    importance = ?
+                    content = ?, source = ?, word_count = ?
                 WHERE id = ?
                 ''', (
                     article.get('title', ''),
@@ -83,7 +86,6 @@ class DatabaseManager:
                     article.get('content', ''),
                     article.get('source', ''),
                     article.get('word_count', 0),
-                    1 if article.get('importance', False) else 0,
                     article_id
                 ))
             else:
@@ -105,9 +107,12 @@ class DatabaseManager:
                 article_id = cursor.lastrowid
             
             # 保存股票信息
-            cursor.execute('DELETE FROM stocks WHERE article_id = ?', (article_id,))
+            # 只有当文章对象中包含股票信息且不为空时才更新股票数据
+            # 采集器创建的文章对象中stocks为空列表，所以需要特殊处理
             stocks = article.get('stocks', [])
-            if isinstance(stocks, list):
+            if isinstance(stocks, list) and len(stocks) > 0:
+                # 只有当股票列表不为空时才更新
+                cursor.execute('DELETE FROM stocks WHERE article_id = ?', (article_id,))
                 for stock in stocks:
                     if isinstance(stock, dict):
                         stock_name = stock.get('name', '')
@@ -144,11 +149,8 @@ class DatabaseManager:
         cursor = conn.cursor()
         try:
             cursor.execute('''
-            SELECT a.*, GROUP_CONCAT(s.stock_name, ', ') as stock_names
-            FROM articles a
-            LEFT JOIN stocks s ON a.id = s.article_id
-            GROUP BY a.id
-            ORDER BY a.publish_time DESC
+            SELECT * FROM articles
+            ORDER BY publish_time DESC
             ''')
             rows = cursor.fetchall()
             
@@ -224,6 +226,54 @@ class DatabaseManager:
             print(f"按日期获取文章失败: {e}")
             conn.close()
             return []
+    
+    def get_important_articles(self):
+        """获取重要文章"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+            SELECT * FROM articles WHERE importance = 1
+            ORDER BY publish_time DESC
+            ''')
+            rows = cursor.fetchall()
+            
+            articles = []
+            for row in rows:
+                article = {
+                    'id': row[0],
+                    'url': row[1],
+                    'title': row[2],
+                    'author': row[3],
+                    'publish_time': row[4],
+                    'content': row[5],
+                    'source': row[6],
+                    'word_count': row[7],
+                    'importance': bool(row[8]),
+                    'created_at': row[9]
+                }
+                # 加载股票信息
+                cursor.execute('''
+                SELECT stock_name FROM stocks WHERE article_id = ?
+                ''', (row[0],))
+                stocks = []
+                for stock_row in cursor.fetchall():
+                    stocks.append({'name': stock_row[0]})
+                article['stocks'] = stocks
+                articles.append(article)
+            
+            conn.close()
+            return articles
+        except Exception as e:
+            print(f"获取重要文章失败: {e}")
+            conn.close()
+            return []
+    
+    def get_today_articles(self):
+        """获取当天文章"""
+        from datetime import datetime
+        today = datetime.now().strftime('%Y-%m-%d')
+        return self.get_articles_by_date(today)
     
     def update_article_importance(self, article_id, importance):
         """更新文章的重要性标记"""

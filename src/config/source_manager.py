@@ -116,10 +116,6 @@ class SourceManager:
     
     def add_source(self, source_config):
         """添加新的信息源"""
-        # 生成唯一ID
-        source_id = source_config.get('id') or self._generate_source_id(source_config.get('name', 'new_source'))
-        source_config['id'] = source_id
-        
         # 验证必填字段
         required_fields = ['name', 'url', 'type']
         for field in required_fields:
@@ -132,20 +128,38 @@ class SourceManager:
         source_config.setdefault('max_articles', 10)
         source_config.setdefault('interval', self.global_config.get('default_interval', 30))
         
-        # 检查是否已存在
-        existing_ids = [s['id'] for s in self.sources]
-        if source_id in existing_ids:
-            # 更新现有源
+        # 检查是否已存在（根据ID或名称）
+        existing_id = None
+        existing_index = -1
+        
+        # 检查是否有相同ID的源
+        if 'id' in source_config:
             for i, source in enumerate(self.sources):
-                if source['id'] == source_id:
-                    self.sources[i] = source_config
+                if source.get('id') == source_config['id']:
+                    existing_id = source_config['id']
+                    existing_index = i
                     break
+        
+        # 如果没有找到相同ID，检查是否有相同名称的源
+        if existing_index == -1:
+            source_name = source_config.get('name')
+            for i, source in enumerate(self.sources):
+                if source.get('name') == source_name:
+                    existing_index = i
+                    break
+        
+        if existing_index >= 0:
+            # 更新现有源
+            self.sources[existing_index] = source_config
         else:
             # 添加新源
             self.sources.append(source_config)
         
+        # 重新编号所有信息源ID
+        self._renumber_source_ids()
+        
         self.save_config()
-        return source_id
+        return source_config['id']
     
     def remove_source(self, source_id):
         """移除信息源"""
@@ -169,6 +183,10 @@ class SourceManager:
                     new_sources.append(source)
         
         self.sources = new_sources
+        
+        # 重新编号所有信息源ID
+        self._renumber_source_ids()
+        
         self.save_config()
     
     def update_source(self, source_id, updates):
@@ -224,6 +242,12 @@ class SourceManager:
         new_id = max_id + 1
         
         return new_id
+    
+    def _renumber_source_ids(self):
+        """重新编号所有信息源ID，确保ID从1开始连续编号"""
+        # 按照添加顺序重新编号
+        for i, source in enumerate(self.sources, 1):
+            source['id'] = i
     
     def get_source_by_id(self, source_id):
         """根据ID获取信息源"""

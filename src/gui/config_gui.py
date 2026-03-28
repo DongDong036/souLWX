@@ -65,22 +65,20 @@ class ConfigGUI:
         list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
         # 树形视图
-        columns = ('id', 'name', 'url', 'type', 'enabled', 'interval')
+        columns = ('id', 'name', 'url', 'enabled', 'interval')
         self.sources_tree = ttk.Treeview(list_frame, columns=columns, show='headings')
         
         # 配置列
         self.sources_tree.heading('id', text='ID', anchor=tk.CENTER)
         self.sources_tree.heading('name', text='名称', anchor=tk.W)
         self.sources_tree.heading('url', text='URL', anchor=tk.W)
-        self.sources_tree.heading('type', text='类型', anchor=tk.CENTER)
         self.sources_tree.heading('enabled', text='状态', anchor=tk.CENTER)
         self.sources_tree.heading('interval', text='采集间隔(分钟)', anchor=tk.CENTER)
         
         # 设置列宽
         self.sources_tree.column('id', width=100, anchor=tk.CENTER)
         self.sources_tree.column('name', width=120, anchor=tk.W)
-        self.sources_tree.column('url', width=300, anchor=tk.W)
-        self.sources_tree.column('type', width=80, anchor=tk.CENTER)
+        self.sources_tree.column('url', width=400, anchor=tk.W)
         self.sources_tree.column('enabled', width=60, anchor=tk.CENTER)
         self.sources_tree.column('interval', width=100, anchor=tk.CENTER)
         
@@ -139,7 +137,6 @@ class ConfigGUI:
                 source.get('id'),
                 source.get('name'),
                 source.get('url'),
-                source.get('type'),
                 enabled,
                 source.get('interval', 30)
             ))
@@ -216,11 +213,7 @@ class ConfigGUI:
                               bg='#2196F3', fg='white', font=('微软雅黑', 9, 'bold'), padx=10, pady=4)
         analyze_btn.grid(row=1, column=2, sticky=tk.W, pady=10, padx=5)
         
-        # 类型
-        tk.Label(form_frame, text="类型:", font=('微软雅黑', 10)).grid(row=3, column=0, sticky=tk.W, pady=10)
-        type_var = tk.StringVar(value=source.get('type', 'community') if source else 'community')
-        type_options = ['community', 'news', 'blog', 'forum']
-        ttk.Combobox(form_frame, textvariable=type_var, values=type_options, width=37).grid(row=3, column=1, sticky=tk.W, pady=10)
+
         
         # 最大文章数
         tk.Label(form_frame, text="最大文章数:", font=('微软雅黑', 10)).grid(row=4, column=0, sticky=tk.W, pady=10)
@@ -357,7 +350,6 @@ class ConfigGUI:
             source_config = {
                 "name": name_var.get(),
                 "url": url_var.get(),
-                "type": type_var.get(),
                 "max_articles": int(max_articles_var.get()),
                 "interval": int(interval_var.get()),
                 "enabled": enabled_var.get(),
